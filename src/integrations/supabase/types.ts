@@ -14,7 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      doctor_incompatibilities: {
+        Row: {
+          created_at: string
+          doctor_id: string
+          id: string
+          incompatible_doctor_id: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_id: string
+          id?: string
+          incompatible_doctor_id: string
+        }
+        Update: {
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          incompatible_doctor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_incompatibilities_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_incompatibilities_incompatible_doctor_id_fkey"
+            columns: ["incompatible_doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctors: {
+        Row: {
+          alias: string
+          created_at: string
+          full_name: string
+          id: string
+          max_17h_guards: number | null
+          max_7h_guards: number | null
+          unavailable_weekdays: number[] | null
+          updated_at: string
+        }
+        Insert: {
+          alias: string
+          created_at?: string
+          full_name: string
+          id?: string
+          max_17h_guards?: number | null
+          max_7h_guards?: number | null
+          unavailable_weekdays?: number[] | null
+          updated_at?: string
+        }
+        Update: {
+          alias?: string
+          created_at?: string
+          full_name?: string
+          id?: string
+          max_17h_guards?: number | null
+          max_7h_guards?: number | null
+          unavailable_weekdays?: number[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
