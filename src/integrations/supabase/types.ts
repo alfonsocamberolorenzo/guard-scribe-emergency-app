@@ -83,6 +83,118 @@ export type Database = {
         }
         Relationships: []
       }
+      guard_assignments: {
+        Row: {
+          created_at: string
+          date: string
+          doctor_id: string
+          id: string
+          is_original: boolean
+          original_doctor_id: string | null
+          schedule_id: string
+          shift_position: number | null
+          shift_type: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          doctor_id: string
+          id?: string
+          is_original?: boolean
+          original_doctor_id?: string | null
+          schedule_id: string
+          shift_position?: number | null
+          shift_type: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          doctor_id?: string
+          id?: string
+          is_original?: boolean
+          original_doctor_id?: string | null
+          schedule_id?: string
+          shift_position?: number | null
+          shift_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guard_assignments_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guard_assignments_original_doctor_id_fkey"
+            columns: ["original_doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guard_assignments_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "guard_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guard_days: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          is_guard_day: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          is_guard_day?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          is_guard_day?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      guard_schedules: {
+        Row: {
+          approved_at: string | null
+          created_at: string
+          generated_at: string
+          id: string
+          month: number
+          status: string
+          year: number
+        }
+        Insert: {
+          approved_at?: string | null
+          created_at?: string
+          generated_at?: string
+          id?: string
+          month: number
+          status?: string
+          year: number
+        }
+        Update: {
+          approved_at?: string | null
+          created_at?: string
+          generated_at?: string
+          id?: string
+          month?: number
+          status?: string
+          year?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
