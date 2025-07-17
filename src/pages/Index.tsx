@@ -4,6 +4,8 @@ import { DoctorForm } from "@/components/DoctorForm";
 import { DoctorList } from "@/components/DoctorList";
 import { CalendarConfig } from "@/components/CalendarConfig";
 import { ScheduleGenerator } from "@/components/ScheduleGenerator";
+import { ViewSchedule } from "@/components/ViewSchedule";
+import { LeaveRequests } from "@/components/LeaveRequests";
 
 interface Doctor {
   id: string;
@@ -78,20 +80,10 @@ const Index = () => {
         return <ScheduleGenerator />;
       
       case 'view-schedule':
-        return (
-          <div className="text-center py-8">
-            <h2 className="text-2xl font-bold mb-4">View Schedule</h2>
-            <p className="text-muted-foreground">Coming soon...</p>
-          </div>
-        );
+        return <ViewSchedule />;
       
       case 'leave-requests':
-        return (
-          <div className="text-center py-8">
-            <h2 className="text-2xl font-bold mb-4">Leave Requests</h2>
-            <p className="text-muted-foreground">Coming soon...</p>
-          </div>
-        );
+        return <LeaveRequests />;
       
       default:
         return null;
