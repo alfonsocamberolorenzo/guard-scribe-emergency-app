@@ -3,6 +3,7 @@ import { Navigation } from "@/components/Navigation";
 import { DoctorForm } from "@/components/DoctorForm";
 import { DoctorList } from "@/components/DoctorList";
 import { CalendarConfig } from "@/components/CalendarConfig";
+import { ScheduleGenerator } from "@/components/ScheduleGenerator";
 
 interface Doctor {
   id: string;
@@ -74,12 +75,7 @@ const Index = () => {
         return <CalendarConfig />;
       
       case 'schedule-generator':
-        return (
-          <div className="text-center py-8">
-            <h2 className="text-2xl font-bold mb-4">Schedule Generator</h2>
-            <p className="text-muted-foreground">Coming soon...</p>
-          </div>
-        );
+        return <ScheduleGenerator />;
       
       case 'view-schedule':
         return (
