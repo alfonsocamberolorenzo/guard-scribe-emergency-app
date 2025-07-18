@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Eye, Users, Clock } from "lucide-react";
+import { CalendarDays, Eye, Users, Clock, Edit, Save, X } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 interface Schedule {
@@ -22,10 +24,19 @@ interface Assignment {
   date: string;
   shift_type: string;
   shift_position: number;
+  doctor_id: string;
+  is_original: boolean;
+  original_doctor_id?: string;
   doctor: {
     full_name: string;
     alias: string;
   };
+}
+
+interface Doctor {
+  id: string;
+  full_name: string;
+  alias: string;
 }
 
 const MONTHS = [
@@ -37,12 +48,16 @@ export const ViewSchedule = () => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
     fetchSchedules();
+    fetchDoctors();
   }, []);
 
   const fetchSchedules = async () => {
@@ -67,24 +82,34 @@ export const ViewSchedule = () => {
     }
   };
 
+  const fetchDoctors = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('doctors')
+        .select('id, full_name, alias')
+        .order('full_name');
+
+      if (error) throw error;
+      setDoctors(data || []);
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+    }
+  };
+
   const fetchAssignments = async (scheduleId: string) => {
     try {
       // First get assignments
       const { data: assignmentsData, error: assignmentsError } = await supabase
         .from('guard_assignments')
-        .select('id, date, shift_type, shift_position, doctor_id')
+        .select('id, date, shift_type, shift_position, doctor_id, is_original, original_doctor_id')
         .eq('schedule_id', scheduleId)
         .order('date')
         .order('shift_type');
 
       if (assignmentsError) throw assignmentsError;
 
-      // Then get doctors info
-      const { data: doctorsData, error: doctorsError } = await supabase
-        .from('doctors')
-        .select('id, full_name, alias');
-
-      if (doctorsError) throw doctorsError;
+      // Then get doctors info  
+      const doctorsData = doctors.length > 0 ? doctors : await fetchDoctorsData();
 
       // Combine the data
       const assignmentsWithDoctors = assignmentsData?.map(assignment => {
@@ -109,10 +134,76 @@ export const ViewSchedule = () => {
     }
   };
 
+  const fetchDoctorsData = async () => {
+    const { data, error } = await supabase
+      .from('doctors')
+      .select('id, full_name, alias');
+    
+    if (error) throw error;
+    return data || [];
+  };
+
   const handleScheduleSelect = (schedule: Schedule) => {
     setSelectedSchedule(schedule);
     fetchAssignments(schedule.id);
     setSelectedDate(undefined);
+    setEditingAssignment(null);
+  };
+
+  const startEditing = (assignment: Assignment) => {
+    setEditingAssignment(assignment.id);
+    setSelectedDoctorId(assignment.doctor_id);
+  };
+
+  const cancelEditing = () => {
+    setEditingAssignment(null);
+    setSelectedDoctorId("");
+  };
+
+  const saveAssignmentChange = async (assignmentId: string) => {
+    if (!selectedDoctorId) return;
+
+    try {
+      const assignment = assignments.find(a => a.id === assignmentId);
+      if (!assignment) return;
+
+      const updateData: any = {
+        doctor_id: selectedDoctorId,
+        is_original: false
+      };
+
+      // If this is the first change, store the original doctor
+      if (assignment.is_original) {
+        updateData.original_doctor_id = assignment.doctor_id;
+      }
+
+      const { error } = await supabase
+        .from('guard_assignments')
+        .update(updateData)
+        .eq('id', assignmentId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Assignment Updated",
+        description: "The guard assignment has been updated successfully",
+      });
+
+      // Refresh assignments
+      if (selectedSchedule) {
+        fetchAssignments(selectedSchedule.id);
+      }
+      
+      setEditingAssignment(null);
+      setSelectedDoctorId("");
+    } catch (error) {
+      console.error('Error updating assignment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update assignment",
+        variant: "destructive",
+      });
+    }
   };
 
   const approveSchedule = async (scheduleId: string) => {
@@ -283,11 +374,59 @@ export const ViewSchedule = () => {
                               key={assignment.id}
                               className="flex items-center justify-between p-2 border rounded"
                             >
-                              <div>
-                                <p className="font-medium">{assignment.doctor.full_name}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {assignment.doctor.alias}
-                                </p>
+                              <div className="flex-1">
+                                {editingAssignment === assignment.id ? (
+                                  <div className="flex items-center gap-2">
+                                    <Select 
+                                      value={selectedDoctorId} 
+                                      onValueChange={setSelectedDoctorId}
+                                    >
+                                      <SelectTrigger className="w-48">
+                                        <SelectValue placeholder="Select doctor" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {doctors.map((doctor) => (
+                                          <SelectItem key={doctor.id} value={doctor.id}>
+                                            {doctor.full_name} ({doctor.alias})
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <Button 
+                                      size="sm" 
+                                      onClick={() => saveAssignmentChange(assignment.id)}
+                                      disabled={!selectedDoctorId}
+                                    >
+                                      <Save className="h-3 w-3" />
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      onClick={cancelEditing}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <div>
+                                      <p className="font-medium">{assignment.doctor.full_name}</p>
+                                      <p className="text-sm text-muted-foreground">
+                                        {assignment.doctor.alias}
+                                        {!assignment.is_original && (
+                                          <span className="ml-2 text-xs text-orange-600">(Modified)</span>
+                                        )}
+                                      </p>
+                                    </div>
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost" 
+                                      onClick={() => startEditing(assignment)}
+                                    >
+                                      <Edit className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                               <Badge variant="outline">
                                 {assignment.shift_type} shift
@@ -313,10 +452,63 @@ export const ViewSchedule = () => {
                         key={assignment.id}
                         className="flex items-center justify-between p-2 text-sm border rounded"
                       >
-                        <div>
-                          <span className="font-medium">{format(parseISO(assignment.date), 'MMM dd')}</span>
-                          <span className="mx-2">-</span>
-                          <span>{assignment.doctor.full_name}</span>
+                        <div className="flex-1">
+                          {editingAssignment === assignment.id ? (
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium min-w-16">
+                                {format(parseISO(assignment.date), 'MMM dd')}
+                              </span>
+                              <Select 
+                                value={selectedDoctorId} 
+                                onValueChange={setSelectedDoctorId}
+                              >
+                                <SelectTrigger className="w-40">
+                                  <SelectValue placeholder="Select doctor" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {doctors.map((doctor) => (
+                                    <SelectItem key={doctor.id} value={doctor.id}>
+                                      {doctor.alias}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button 
+                                size="sm" 
+                                onClick={() => saveAssignmentChange(assignment.id)}
+                                disabled={!selectedDoctorId}
+                              >
+                                <Save className="h-3 w-3" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={cancelEditing}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium min-w-16">
+                                {format(parseISO(assignment.date), 'MMM dd')}
+                              </span>
+                              <span className="mx-2">-</span>
+                              <span>
+                                {assignment.doctor.full_name}
+                                {!assignment.is_original && (
+                                  <span className="ml-1 text-xs text-orange-600">(Modified)</span>
+                                )}
+                              </span>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={() => startEditing(assignment)}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                         <Badge variant="outline" className="text-xs">
                           {assignment.shift_type}
