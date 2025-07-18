@@ -70,8 +70,14 @@ export const ScheduleGenerator = () => {
       const { data: doctors, error: doctorsError } = await supabase
         .from('doctors')
         .select('*');
+      
+      // Fetch doctor incompatibilities
+      const { data: incompatibilities, error: incompError } = await supabase
+        .from('doctor_incompatibilities')
+        .select('doctor_id, incompatible_doctor_id');
 
       if (doctorsError) throw doctorsError;
+      if (incompError) throw incompError;
 
       // Fetch guard days for the selected month
       const startDate = new Date(selectedYear, selectedMonth - 1, 1, 12);
@@ -127,7 +133,7 @@ export const ScheduleGenerator = () => {
       if (scheduleError) throw scheduleError;
 
       // Generate assignments using a round-robin approach
-      const assignments = generateAssignments(doctors, guardDays, schedule.id, guardAssignments);
+      const assignments = generateAssignments(doctors, guardDays, schedule.id, guardAssignments, incompatibilities || []);
 
       // Save assignments to database
       const { error: assignmentsError } = await supabase
@@ -163,7 +169,7 @@ export const ScheduleGenerator = () => {
 
   type ShiftType = '7h' | '17h';
 
-const generateAssignments = (doctors: Doctor[], guardDays: GuardDay[], scheduleId: string, guardAssignments: GuardAssignment[]) => {
+const generateAssignments = (doctors: Doctor[], guardDays: GuardDay[], scheduleId: string, guardAssignments: GuardAssignment[], incompatibilities: any[]) => {
   const schedule = [];
   const doctorStats = new Map<string, {
     '7h': number,
@@ -210,6 +216,15 @@ const generateAssignments = (doctors: Doctor[], guardDays: GuardDay[], scheduleI
     weeks.get(week)!.push(day);
   });
 
+  // Build incompatibility map
+  const incompatibilityMap = new Map<string, Set<string>>();
+  incompatibilities.forEach(item => {
+    if (!incompatibilityMap.has(item.doctor_id)) {
+      incompatibilityMap.set(item.doctor_id, new Set());
+    }
+    incompatibilityMap.get(item.doctor_id)!.add(item.incompatible_doctor_id);
+  });
+
   const unassignedDays: { date: string, shiftType: ShiftType }[] = [];
 
   for (const [weekNumber, days] of weeks.entries()) {
@@ -220,6 +235,8 @@ const generateAssignments = (doctors: Doctor[], guardDays: GuardDay[], scheduleI
       const dayOfWeek = date.getDay();
       const isoDate = date.toISOString().split('T')[0];
 
+      // Track doctors assigned on this date to check incompatibilities
+      const assignedOnDate = new Set<string>();
       let shift17hCount = 0;
 
       for (const shiftType of ['7h', '17h', '17h'] as ShiftType[]) {
@@ -228,11 +245,17 @@ const generateAssignments = (doctors: Doctor[], guardDays: GuardDay[], scheduleI
           const lastDate = stats.lastGuardDate ? new Date(stats.lastGuardDate) : null;
           const diffDays = lastDate ? (date.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
 
+          // Check if doctor is incompatible with already assigned doctors on this date
+          const hasIncompatibleAssignment = Array.from(assignedOnDate).some(assignedId => 
+            incompatibilityMap.get(doctor.id)?.has(assignedId)
+          );
+
           return (
             !doctor.unavailable_weekdays.includes(dayOfWeek) &&
             (shiftType === '7h' ? stats['7h'] - stats['7h_init'] < getMaxPerDoctor(doctors.length, guardDays, '7h', false) : stats['17h'] - stats['17h_init'] < getMaxPerDoctor(doctors.length, guardDays, '17h', false)) &&
             diffDays >= 2 &&
-            !stats.assignedWeeks.has(weekNumber)
+            !stats.assignedWeeks.has(weekNumber) &&
+            !hasIncompatibleAssignment
           );
         });
 
@@ -243,10 +266,16 @@ const generateAssignments = (doctors: Doctor[], guardDays: GuardDay[], scheduleI
             const lastDate = stats.lastGuardDate ? new Date(stats.lastGuardDate) : null;
             const diffDays = lastDate ? (date.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
 
+            // Check incompatibilities even when relaxing week restriction
+            const hasIncompatibleAssignment = Array.from(assignedOnDate).some(assignedId => 
+              incompatibilityMap.get(doctor.id)?.has(assignedId)
+            );
+
             return (
               !doctor.unavailable_weekdays.includes(dayOfWeek) &&
               (shiftType === '7h' ? stats['7h'] - stats['7h_init'] < getMaxPerDoctor(doctors.length, guardDays, '7h', true) : stats['17h'] - stats['17h_init'] < getMaxPerDoctor(doctors.length, guardDays, '17h', true)) &&
-              diffDays >= 2
+              diffDays >= 2 &&
+              !hasIncompatibleAssignment
             );
           });
         }
@@ -255,9 +284,16 @@ const generateAssignments = (doctors: Doctor[], guardDays: GuardDay[], scheduleI
         if (eligibleDoctors.length === 0) {
           eligibleDoctors = doctors.filter(doctor => {
             const stats = doctorStats.get(doctor.id)!;
+            
+            // Still check incompatibilities even when relaxing day restrictions
+            const hasIncompatibleAssignment = Array.from(assignedOnDate).some(assignedId => 
+              incompatibilityMap.get(doctor.id)?.has(assignedId)
+            );
+
             return (
               !doctor.unavailable_weekdays.includes(dayOfWeek) &&
-              (shiftType === '7h' ? stats['7h'] - stats['7h_init'] < getMaxPerDoctor(doctors.length, guardDays, '7h', true) : stats['17h'] - stats['17h_init'] < getMaxPerDoctor(doctors.length, guardDays, '17h', true))
+              (shiftType === '7h' ? stats['7h'] - stats['7h_init'] < getMaxPerDoctor(doctors.length, guardDays, '7h', true) : stats['17h'] - stats['17h_init'] < getMaxPerDoctor(doctors.length, guardDays, '17h', true)) &&
+              !hasIncompatibleAssignment
             );
           });
         }
@@ -293,6 +329,9 @@ const generateAssignments = (doctors: Doctor[], guardDays: GuardDay[], scheduleI
           if (dayOfWeek === 4) stats.thursdays++;
           stats.lastGuardDate = isoDate;
           stats.assignedWeeks.add(weekNumber);
+          
+          // Track that this doctor is assigned on this date
+          assignedOnDate.add(selected.id);
         } else {
           unassignedDays.push({ date: isoDate, shiftType });
         }

@@ -25,6 +25,7 @@ const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function DoctorList({ onAddDoctor, onEditDoctor, refreshTrigger }: DoctorListProps) {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [incompatibilities, setIncompatibilities] = useState<Map<string, string[]>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -37,6 +38,9 @@ export function DoctorList({ onAddDoctor, onEditDoctor, refreshTrigger }: Doctor
 
       if (error) throw error;
       setDoctors(data || []);
+      
+      // Fetch incompatibilities
+      await fetchIncompatibilities(data || []);
     } catch (error) {
       console.error("Error fetching doctors:", error);
       toast({
@@ -46,6 +50,26 @@ export function DoctorList({ onAddDoctor, onEditDoctor, refreshTrigger }: Doctor
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchIncompatibilities = async (doctorsList: Doctor[]) => {
+    try {
+      const { data, error } = await supabase
+        .from("doctor_incompatibilities")
+        .select("doctor_id, incompatible_doctor_id");
+
+      if (error) throw error;
+
+      const incompMap = new Map<string, string[]>();
+      data?.forEach(item => {
+        const existing = incompMap.get(item.doctor_id) || [];
+        incompMap.set(item.doctor_id, [...existing, item.incompatible_doctor_id]);
+      });
+
+      setIncompatibilities(incompMap);
+    } catch (error) {
+      console.error("Error fetching incompatibilities:", error);
     }
   };
 
@@ -130,6 +154,22 @@ export function DoctorList({ onAddDoctor, onEditDoctor, refreshTrigger }: Doctor
                           {doctor.max_17h_guards ?? "No limit"}
                         </span>
                       </div>
+
+                      {incompatibilities.get(doctor.id)?.length && (
+                        <div>
+                          <span className="font-medium">Incompatible with: </span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {incompatibilities.get(doctor.id)?.map(incompId => {
+                              const incompDoc = doctors.find(d => d.id === incompId);
+                              return incompDoc ? (
+                                <Badge key={incompId} variant="outline" className="text-xs">
+                                  {incompDoc.alias}
+                                </Badge>
+                              ) : null;
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 
 interface Doctor {
   id: string;
@@ -47,9 +49,33 @@ export function DoctorForm({ doctor, onSave, onCancel, allDoctors }: DoctorFormP
     doctor?.max_17h_guards?.toString() || ""
   );
   const [incompatibleDoctors, setIncompatibleDoctors] = useState<string[]>([]);
+  const [selectedIncompatibleDoctor, setSelectedIncompatibleDoctor] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
 
   const { toast } = useToast();
+
+  // Load existing incompatibilities when editing
+  useEffect(() => {
+    if (doctor?.id) {
+      fetchIncompatibilities();
+    }
+  }, [doctor?.id]);
+
+  const fetchIncompatibilities = async () => {
+    if (!doctor?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("doctor_incompatibilities")
+        .select("incompatible_doctor_id")
+        .eq("doctor_id", doctor.id);
+
+      if (error) throw error;
+      setIncompatibleDoctors(data?.map(item => item.incompatible_doctor_id) || []);
+    } catch (error) {
+      console.error("Error fetching incompatibilities:", error);
+    }
+  };
 
   const handleWeekdayChange = (weekday: number, checked: boolean) => {
     if (checked) {
@@ -57,6 +83,17 @@ export function DoctorForm({ doctor, onSave, onCancel, allDoctors }: DoctorFormP
     } else {
       setUnavailableWeekdays(unavailableWeekdays.filter(w => w !== weekday));
     }
+  };
+
+  const addIncompatibleDoctor = () => {
+    if (selectedIncompatibleDoctor && !incompatibleDoctors.includes(selectedIncompatibleDoctor)) {
+      setIncompatibleDoctors([...incompatibleDoctors, selectedIncompatibleDoctor]);
+      setSelectedIncompatibleDoctor("");
+    }
+  };
+
+  const removeIncompatibleDoctor = (doctorId: string) => {
+    setIncompatibleDoctors(incompatibleDoctors.filter(id => id !== doctorId));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,6 +109,8 @@ export function DoctorForm({ doctor, onSave, onCancel, allDoctors }: DoctorFormP
         max_17h_guards: max17hGuards ? parseInt(max17hGuards) : null,
       };
 
+      let doctorId = doctor?.id;
+      
       if (doctor) {
         // Update existing doctor
         const { error } = await supabase
@@ -80,13 +119,51 @@ export function DoctorForm({ doctor, onSave, onCancel, allDoctors }: DoctorFormP
           .eq("id", doctor.id);
 
         if (error) throw error;
+        doctorId = doctor.id;
       } else {
         // Create new doctor
-        const { error } = await supabase
+        const { data: newDoctor, error } = await supabase
           .from("doctors")
-          .insert([doctorData]);
+          .insert([doctorData])
+          .select()
+          .single();
 
         if (error) throw error;
+        doctorId = newDoctor.id;
+      }
+
+      // Handle incompatibilities
+      if (doctorId) {
+        // Remove existing incompatibilities
+        if (doctor?.id) {
+          await supabase
+            .from("doctor_incompatibilities")
+            .delete()
+            .eq("doctor_id", doctor.id);
+        }
+
+        // Add new incompatibilities (bidirectional)
+        if (incompatibleDoctors.length > 0) {
+          const incompatibilityRecords = [];
+          
+          incompatibleDoctors.forEach(incompatibleId => {
+            // Add relationship in both directions
+            incompatibilityRecords.push({
+              doctor_id: doctorId,
+              incompatible_doctor_id: incompatibleId
+            });
+            incompatibilityRecords.push({
+              doctor_id: incompatibleId,
+              incompatible_doctor_id: doctorId
+            });
+          });
+
+          const { error: incompError } = await supabase
+            .from("doctor_incompatibilities")
+            .insert(incompatibilityRecords);
+
+          if (incompError) throw incompError;
+        }
       }
 
       toast({
@@ -178,6 +255,58 @@ export function DoctorForm({ doctor, onSave, onCancel, allDoctors }: DoctorFormP
                 value={max17hGuards}
                 onChange={(e) => setMax17hGuards(e.target.value)}
               />
+            </div>
+          </div>
+
+          <div>
+            <Label>Incompatible Doctors</Label>
+            <div className="space-y-3 mt-2">
+              <div className="flex gap-2">
+                <Select value={selectedIncompatibleDoctor} onValueChange={setSelectedIncompatibleDoctor}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select incompatible doctor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allDoctors
+                      .filter(d => d.id !== doctor?.id && !incompatibleDoctors.includes(d.id))
+                      .map((doc) => (
+                        <SelectItem key={doc.id} value={doc.id}>
+                          {doc.full_name} ({doc.alias})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addIncompatibleDoctor}
+                  disabled={!selectedIncompatibleDoctor}
+                >
+                  Add
+                </Button>
+              </div>
+              
+              {incompatibleDoctors.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {incompatibleDoctors.map(doctorId => {
+                    const incompDoc = allDoctors.find(d => d.id === doctorId);
+                    return incompDoc ? (
+                      <Badge key={doctorId} variant="secondary" className="flex items-center gap-1">
+                        {incompDoc.full_name} ({incompDoc.alias})
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto p-0 ml-1"
+                          onClick={() => removeIncompatibleDoctor(doctorId)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    ) : null;
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
