@@ -216,13 +216,19 @@ const generateAssignments = (doctors: Doctor[], guardDays: GuardDay[], scheduleI
     weeks.get(week)!.push(day);
   });
 
-  // Build incompatibility map
+  // Build bidirectional incompatibility map
   const incompatibilityMap = new Map<string, Set<string>>();
   incompatibilities.forEach(item => {
+    // Add both directions of the incompatibility
     if (!incompatibilityMap.has(item.doctor_id)) {
       incompatibilityMap.set(item.doctor_id, new Set());
     }
+    if (!incompatibilityMap.has(item.incompatible_doctor_id)) {
+      incompatibilityMap.set(item.incompatible_doctor_id, new Set());
+    }
+    
     incompatibilityMap.get(item.doctor_id)!.add(item.incompatible_doctor_id);
+    incompatibilityMap.get(item.incompatible_doctor_id)!.add(item.doctor_id);
   });
 
   const unassignedDays: { date: string, shiftType: ShiftType }[] = [];
