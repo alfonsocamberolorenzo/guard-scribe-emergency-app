@@ -33,6 +33,14 @@ interface Assignment {
   };
 }
 
+interface LeaveRequest {
+  id: string;
+  doctor_id: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+}
+
 interface Doctor {
   id: string;
   full_name: string;
@@ -49,6 +57,7 @@ export const ViewSchedule = () => {
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
@@ -143,9 +152,29 @@ export const ViewSchedule = () => {
     return data || [];
   };
 
+  const fetchLeaveRequests = async (month: number, year: number) => {
+    try {
+      // Fetch leave requests for the selected month
+      const startOfMonth = `${year}-${month.toString().padStart(2, '0')}-01`;
+      const endOfMonth = new Date(year, month, 0);
+      const endOfMonthStr = `${year}-${month.toString().padStart(2, '0')}-${endOfMonth.getDate().toString().padStart(2, '0')}`;
+
+      const { data, error } = await supabase
+        .from('leave_requests')
+        .select('id, doctor_id, start_date, end_date, status')
+        .or(`start_date.lte.${endOfMonthStr},end_date.gte.${startOfMonth}`);
+
+      if (error) throw error;
+      setLeaveRequests(data || []);
+    } catch (error) {
+      console.error('Error fetching leave requests:', error);
+    }
+  };
+
   const handleScheduleSelect = (schedule: Schedule) => {
     setSelectedSchedule(schedule);
     fetchAssignments(schedule.id);
+    fetchLeaveRequests(schedule.month, schedule.year);
     setSelectedDate(undefined);
     setEditingAssignment(null);
   };
@@ -251,6 +280,22 @@ export const ViewSchedule = () => {
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
+  };
+
+  const getLeaveRequestStatus = (doctorId: string, date: string) => {
+    const leaveRequest = leaveRequests.find(lr => 
+      lr.doctor_id === doctorId && 
+      date >= lr.start_date && 
+      date <= lr.end_date
+    );
+    return leaveRequest?.status || null;
+  };
+
+  const getAssignmentStatusColor = (assignment: Assignment) => {
+    const leaveStatus = getLeaveRequestStatus(assignment.doctor_id, assignment.date);
+    if (leaveStatus === 'approved') return 'bg-red-100 border-red-300';
+    if (leaveStatus === 'pending') return 'bg-yellow-100 border-yellow-300';
+    return '';
   };
 
   if (loading) {
@@ -369,10 +414,12 @@ export const ViewSchedule = () => {
                       const dayAssignments = getAssignmentsForDate(selectedDate);
                       return dayAssignments.length > 0 ? (
                         <div className="space-y-2">
-                          {dayAssignments.map((assignment) => (
-                            <div
-                              key={assignment.id}
-                              className="flex items-center justify-between p-2 border rounded"
+                           {dayAssignments.map((assignment) => {
+                             const leaveStatus = getLeaveRequestStatus(assignment.doctor_id, assignment.date);
+                             return (
+                             <div
+                               key={assignment.id}
+                               className={`flex items-center justify-between p-2 border rounded ${getAssignmentStatusColor(assignment)}`}
                             >
                               <div className="flex-1">
                                 {editingAssignment === assignment.id ? (
@@ -409,15 +456,21 @@ export const ViewSchedule = () => {
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-2">
-                                    <div>
-                                      <p className="font-medium">{assignment.doctor.full_name}</p>
-                                      <p className="text-sm text-muted-foreground">
-                                        {assignment.doctor.alias}
-                                        {!assignment.is_original && (
-                                          <span className="ml-2 text-xs text-orange-600">(Modified)</span>
-                                        )}
-                                      </p>
-                                    </div>
+                                     <div>
+                                       <p className="font-medium">{assignment.doctor.full_name}</p>
+                                       <p className="text-sm text-muted-foreground">
+                                         {assignment.doctor.alias}
+                                         {!assignment.is_original && (
+                                           <span className="ml-2 text-xs text-orange-600">(Modified)</span>
+                                         )}
+                                         {leaveStatus === 'approved' && (
+                                           <span className="ml-2 text-xs text-red-600 font-medium">(Leave Approved)</span>
+                                         )}
+                                         {leaveStatus === 'pending' && (
+                                           <span className="ml-2 text-xs text-yellow-600 font-medium">(Leave Pending)</span>
+                                         )}
+                                       </p>
+                                     </div>
                                     <Button 
                                       size="sm" 
                                       variant="ghost" 
@@ -431,26 +484,29 @@ export const ViewSchedule = () => {
                               <Badge variant="outline">
                                 {assignment.shift_type} shift
                               </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-muted-foreground text-sm">
-                          No assignments for this date
-                        </p>
-                      );
-                    })()}
-                  </div>
-                )}
+                             </div>
+                           );
+                           })}
+                         </div>
+                       ) : (
+                         <p className="text-muted-foreground text-sm">
+                           No assignments for this date
+                         </p>
+                       );
+                     })()}
+                   </div>
+                 )}
 
-                {/* All Assignments List */}
-                <div className="space-y-2">
-                  <h4 className="font-medium">All Assignments</h4>
-                  <div className="max-h-64 overflow-y-auto space-y-1">
-                    {assignments.map((assignment) => (
-                      <div
-                        key={assignment.id}
-                        className="flex items-center justify-between p-2 text-sm border rounded"
+                 {/* All Assignments List */}
+                 <div className="space-y-2">
+                   <h4 className="font-medium">All Assignments</h4>
+                   <div className="max-h-64 overflow-y-auto space-y-1">
+                     {assignments.map((assignment) => {
+                       const leaveStatus = getLeaveRequestStatus(assignment.doctor_id, assignment.date);
+                       return (
+                       <div
+                         key={assignment.id}
+                         className={`flex items-center justify-between p-2 text-sm border rounded ${getAssignmentStatusColor(assignment)}`}
                       >
                         <div className="flex-1">
                           {editingAssignment === assignment.id ? (
@@ -494,29 +550,36 @@ export const ViewSchedule = () => {
                                 {format(parseISO(assignment.date), 'MMM dd')}
                               </span>
                               <span className="mx-2">-</span>
-                              <span>
-                                {assignment.doctor.full_name}
-                                {!assignment.is_original && (
-                                  <span className="ml-1 text-xs text-orange-600">(Modified)</span>
-                                )}
-                              </span>
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                onClick={() => startEditing(assignment)}
-                              >
-                                <Edit className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {assignment.shift_type}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                               <span>
+                                 {assignment.doctor.full_name}
+                                 {!assignment.is_original && (
+                                   <span className="ml-1 text-xs text-orange-600">(Modified)</span>
+                                 )}
+                                 {leaveStatus === 'approved' && (
+                                   <span className="ml-1 text-xs text-red-600 font-medium">(Leave Approved)</span>
+                                 )}
+                                 {leaveStatus === 'pending' && (
+                                   <span className="ml-1 text-xs text-yellow-600 font-medium">(Leave Pending)</span>
+                                 )}
+                               </span>
+                               <Button 
+                                 size="sm" 
+                                 variant="ghost" 
+                                 onClick={() => startEditing(assignment)}
+                               >
+                                 <Edit className="h-3 w-3" />
+                               </Button>
+                             </div>
+                           )}
+                         </div>
+                         <Badge variant="outline" className="text-xs">
+                           {assignment.shift_type}
+                         </Badge>
+                       </div>
+                     );
+                     })}
+                   </div>
+                 </div>
               </div>
             ) : (
               <div className="text-center py-8">
