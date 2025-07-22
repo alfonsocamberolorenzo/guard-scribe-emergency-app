@@ -10,7 +10,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarIcon, Plus, FileText, Check, X, Clock } from "lucide-react";
+import { CalendarIcon, Plus, FileText, Check, X, Clock, Edit, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,8 @@ export const LeaveRequests = () => {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
+  const [deleteRequest, setDeleteRequest] = useState<LeaveRequest | null>(null);
   const [formData, setFormData] = useState({
     doctor_id: '',
     start_date: undefined as Date | undefined,
@@ -89,6 +92,28 @@ export const LeaveRequests = () => {
     }
   };
 
+  const startEdit = (request: LeaveRequest) => {
+    setEditingRequest(request);
+    setFormData({
+      doctor_id: request.doctor_id,
+      start_date: parseISO(request.start_date),
+      end_date: parseISO(request.end_date),
+      reason: request.reason || ''
+    });
+    setShowForm(true);
+  };
+
+  const cancelEdit = () => {
+    setEditingRequest(null);
+    setFormData({
+      doctor_id: '',
+      start_date: undefined,
+      end_date: undefined,
+      reason: ''
+    });
+    setShowForm(false);
+  };
+
   const handleSubmit = async () => {
     if (!formData.doctor_id || !formData.start_date || !formData.end_date) {
       toast({
@@ -111,24 +136,38 @@ export const LeaveRequests = () => {
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase
-        .from('leave_requests')
-        .insert({
-          doctor_id: formData.doctor_id,
-          start_date: format(formData.start_date, 'yyyy-MM-dd'),
-          end_date: format(formData.end_date, 'yyyy-MM-dd'),
-          reason: formData.reason,
-          status: 'pending'
-        });
+      const requestData = {
+        doctor_id: formData.doctor_id,
+        start_date: format(formData.start_date, 'yyyy-MM-dd'),
+        end_date: format(formData.end_date, 'yyyy-MM-dd'),
+        reason: formData.reason,
+        status: editingRequest ? editingRequest.status : 'pending'
+      };
+
+      let error;
+      
+      if (editingRequest) {
+        ({ error } = await supabase
+          .from('leave_requests')
+          .update(requestData)
+          .eq('id', editingRequest.id));
+      } else {
+        ({ error } = await supabase
+          .from('leave_requests')
+          .insert({ ...requestData, status: 'pending' }));
+      }
 
       if (error) throw error;
 
       toast({
-        title: "Request Submitted",
-        description: "Leave request has been submitted successfully",
+        title: editingRequest ? "Request Updated" : "Request Submitted",
+        description: editingRequest 
+          ? "Leave request has been updated successfully"
+          : "Leave request has been submitted successfully",
       });
 
       setShowForm(false);
+      setEditingRequest(null);
       setFormData({
         doctor_id: '',
         start_date: undefined,
@@ -140,11 +179,41 @@ export const LeaveRequests = () => {
       console.error('Error submitting request:', error);
       toast({
         title: "Error",
-        description: "Failed to submit leave request",
+        description: editingRequest 
+          ? "Failed to update leave request"
+          : "Failed to submit leave request",
         variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteRequest) return;
+
+    try {
+      const { error } = await supabase
+        .from('leave_requests')
+        .delete()
+        .eq('id', deleteRequest.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Request Deleted",
+        description: "Leave request has been deleted successfully",
+      });
+
+      setDeleteRequest(null);
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting request:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete leave request",
+        variant: "destructive",
+      });
     }
   };
 
@@ -218,7 +287,13 @@ export const LeaveRequests = () => {
           <h2 className="text-2xl font-bold">Leave Requests</h2>
         </div>
         
-        <Dialog open={showForm} onOpenChange={setShowForm}>
+        <Dialog open={showForm} onOpenChange={(open) => {
+          if (!open) {
+            cancelEdit();
+          } else {
+            setShowForm(true);
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
@@ -227,7 +302,9 @@ export const LeaveRequests = () => {
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Submit Leave Request</DialogTitle>
+              <DialogTitle>
+                {editingRequest ? 'Edit Leave Request' : 'Submit Leave Request'}
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -313,11 +390,11 @@ export const LeaveRequests = () => {
               </div>
 
               <div className="flex gap-2 pt-4">
-                <Button onClick={() => setShowForm(false)} variant="outline" className="flex-1">
+                <Button onClick={cancelEdit} variant="outline" className="flex-1">
                   Cancel
                 </Button>
                 <Button onClick={handleSubmit} disabled={isSubmitting} className="flex-1">
-                  {isSubmitting ? "Submitting..." : "Submit Request"}
+                  {isSubmitting ? (editingRequest ? "Updating..." : "Submitting...") : (editingRequest ? "Update Request" : "Submit Request")}
                 </Button>
               </div>
             </div>
@@ -372,34 +449,79 @@ export const LeaveRequests = () => {
                     )}
                   </div>
 
-                  {request.status === 'pending' && (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateRequestStatus(request.id, 'approved')}
-                        className="flex items-center gap-1"
-                      >
-                        <Check className="h-3 w-3" />
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => updateRequestStatus(request.id, 'rejected')}
-                        className="flex items-center gap-1"
-                      >
-                        <X className="h-3 w-3" />
-                        Reject
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-2">
+                    {/* Edit and Delete buttons for all requests */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => startEdit(request)}
+                      className="flex items-center gap-1"
+                    >
+                      <Edit className="h-3 w-3" />
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setDeleteRequest(request)}
+                      className="flex items-center gap-1 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Delete
+                    </Button>
+
+                    {/* Approve/Reject buttons only for pending requests */}
+                    {request.status === 'pending' && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateRequestStatus(request.id, 'approved')}
+                          className="flex items-center gap-1"
+                        >
+                          <Check className="h-3 w-3" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => updateRequestStatus(request.id, 'rejected')}
+                          className="flex items-center gap-1"
+                        >
+                          <X className="h-3 w-3" />
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteRequest} onOpenChange={() => setDeleteRequest(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Leave Request</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this leave request for {deleteRequest?.doctor.full_name}? 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
