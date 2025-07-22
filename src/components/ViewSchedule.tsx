@@ -7,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Eye, Users, Clock, Edit, Save, X } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { CalendarDays, Eye, Users, Clock, Edit, Save, X, Table } from "lucide-react";
+import { format, parseISO, getDaysInMonth } from "date-fns";
 
 interface Schedule {
   id: string;
@@ -62,6 +62,7 @@ export const ViewSchedule = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
+  const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -271,6 +272,80 @@ export const ViewSchedule = () => {
     return assignments.filter(assignment => assignment.date === dateStr);
   };
 
+  const renderTableView = () => {
+    if (!selectedSchedule) return null;
+
+    const year = selectedSchedule.year;
+    const month = selectedSchedule.month;
+    const daysInMonth = getDaysInMonth(new Date(year, month - 1));
+    
+    // Create array of all days in the month
+    const monthDays = Array.from({ length: daysInMonth }, (_, i) => {
+      const day = i + 1;
+      const date = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+      const dayAssignments = assignments.filter(a => a.date === date);
+      
+      return {
+        day,
+        date,
+        shift_7h: dayAssignments.find(a => a.shift_type === '7h')?.doctor.alias || '-',
+        shift_17h_1: dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 1)?.doctor.alias || '-',
+        shift_17h_2: dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 2)?.doctor.alias || '-',
+        hasLeave_7h: dayAssignments.find(a => a.shift_type === '7h') ? getLeaveRequestStatus(dayAssignments.find(a => a.shift_type === '7h')!.doctor_id, date) : null,
+        hasLeave_17h_1: dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 1) ? getLeaveRequestStatus(dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 1)!.doctor_id, date) : null,
+        hasLeave_17h_2: dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 2) ? getLeaveRequestStatus(dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 2)!.doctor_id, date) : null,
+      };
+    });
+
+    const getCellClassName = (leaveStatus: string | null) => {
+      if (leaveStatus === 'approved') return 'bg-red-100 text-red-800 border-red-300';
+      if (leaveStatus === 'pending') return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      return '';
+    };
+
+    return (
+      <div className="space-y-4">
+        <h4 className="font-medium">Monthly Schedule Table</h4>
+        <div className="overflow-auto max-h-96 border rounded-lg">
+          <table className="w-full text-sm">
+            <thead className="bg-muted sticky top-0">
+              <tr>
+                <th className="p-2 text-left border-r font-medium">Day</th>
+                <th className="p-2 text-center border-r font-medium">7h Shift</th>
+                <th className="p-2 text-center border-r font-medium">17h Shift (1)</th>
+                <th className="p-2 text-center font-medium">17h Shift (2)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthDays.map((dayData) => (
+                <tr key={dayData.day} className="border-b hover:bg-muted/50">
+                  <td className="p-2 border-r font-medium">
+                    {dayData.day}
+                  </td>
+                  <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_7h)}`}>
+                    {dayData.shift_7h}
+                    {dayData.hasLeave_7h === 'approved' && <span className="block text-xs text-red-600">(Leave)</span>}
+                    {dayData.hasLeave_7h === 'pending' && <span className="block text-xs text-yellow-600">(Pending)</span>}
+                  </td>
+                  <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_17h_1)}`}>
+                    {dayData.shift_17h_1}
+                    {dayData.hasLeave_17h_1 === 'approved' && <span className="block text-xs text-red-600">(Leave)</span>}
+                    {dayData.hasLeave_17h_1 === 'pending' && <span className="block text-xs text-yellow-600">(Pending)</span>}
+                  </td>
+                  <td className={`p-2 text-center ${getCellClassName(dayData.hasLeave_17h_2)}`}>
+                    {dayData.shift_17h_2}
+                    {dayData.hasLeave_17h_2 === 'approved' && <span className="block text-xs text-red-600">(Leave)</span>}
+                    {dayData.hasLeave_17h_2 === 'pending' && <span className="block text-xs text-yellow-600">(Pending)</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'draft':
@@ -369,14 +444,36 @@ export const ViewSchedule = () => {
                   'Select a Schedule'
                 }
               </span>
-              {selectedSchedule && selectedSchedule.status === 'draft' && (
-                <Button 
-                  onClick={() => approveSchedule(selectedSchedule.id)}
-                  size="sm"
-                >
-                  Approve Schedule
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {selectedSchedule && (
+                  <div className="flex items-center gap-1 border rounded-lg p-1">
+                    <Button
+                      size="sm"
+                      variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+                      onClick={() => setViewMode('calendar')}
+                      className="h-7 px-2"
+                    >
+                      <CalendarDays className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={viewMode === 'table' ? 'default' : 'ghost'}
+                      onClick={() => setViewMode('table')}
+                      className="h-7 px-2"
+                    >
+                      <Table className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                {selectedSchedule && selectedSchedule.status === 'draft' && (
+                  <Button 
+                    onClick={() => approveSchedule(selectedSchedule.id)}
+                    size="sm"
+                  >
+                    Approve Schedule
+                  </Button>
+                )}
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -391,195 +488,204 @@ export const ViewSchedule = () => {
                   </div>
                 </div>
 
-                {/* Calendar View */}
-                <div className="space-y-4">
-                  <h4 className="font-medium">Schedule Calendar</h4>
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    month={new Date(selectedSchedule.year, selectedSchedule.month - 1)}
-                    className="rounded-md border"
-                  />
-                </div>
+                {/* Calendar/Table View */}
+                {viewMode === 'calendar' ? (
+                  <>
+                    {/* Calendar View */}
+                    <div className="space-y-4">
+                      <h4 className="font-medium">Schedule Calendar</h4>
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        month={new Date(selectedSchedule.year, selectedSchedule.month - 1)}
+                        className="rounded-md border"
+                      />
+                    </div>
 
-                {/* Assignments for Selected Date */}
-                {selectedDate && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      Assignments for {format(selectedDate, 'MMMM dd, yyyy')}
-                    </h4>
-                    {(() => {
-                      const dayAssignments = getAssignmentsForDate(selectedDate);
-                      return dayAssignments.length > 0 ? (
-                        <div className="space-y-2">
-                           {dayAssignments.map((assignment) => {
-                             const leaveStatus = getLeaveRequestStatus(assignment.doctor_id, assignment.date);
-                             return (
-                             <div
-                               key={assignment.id}
-                               className={`flex items-center justify-between p-2 border rounded ${getAssignmentStatusColor(assignment)}`}
-                            >
-                              <div className="flex-1">
-                                {editingAssignment === assignment.id ? (
-                                  <div className="flex items-center gap-2">
-                                    <Select 
-                                      value={selectedDoctorId} 
-                                      onValueChange={setSelectedDoctorId}
-                                    >
-                                      <SelectTrigger className="w-48">
-                                        <SelectValue placeholder="Select doctor" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {doctors.map((doctor) => (
-                                          <SelectItem key={doctor.id} value={doctor.id}>
-                                            {doctor.full_name} ({doctor.alias})
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <Button 
-                                      size="sm" 
-                                      onClick={() => saveAssignmentChange(assignment.id)}
-                                      disabled={!selectedDoctorId}
-                                    >
-                                      <Save className="h-3 w-3" />
-                                    </Button>
-                                    <Button 
-                                      size="sm" 
-                                      variant="outline" 
-                                      onClick={cancelEditing}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </Button>
+                    {/* Assignments for Selected Date */}
+                    {selectedDate && (
+                      <div className="space-y-2">
+                        <h4 className="font-medium flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          Assignments for {format(selectedDate, 'MMMM dd, yyyy')}
+                        </h4>
+                        {(() => {
+                          const dayAssignments = getAssignmentsForDate(selectedDate);
+                          return dayAssignments.length > 0 ? (
+                            <div className="space-y-2">
+                              {dayAssignments.map((assignment) => {
+                                const leaveStatus = getLeaveRequestStatus(assignment.doctor_id, assignment.date);
+                                return (
+                                <div
+                                  key={assignment.id}
+                                  className={`flex items-center justify-between p-2 border rounded ${getAssignmentStatusColor(assignment)}`}
+                                >
+                                  <div className="flex-1">
+                                    {editingAssignment === assignment.id ? (
+                                      <div className="flex items-center gap-2">
+                                        <Select 
+                                          value={selectedDoctorId} 
+                                          onValueChange={setSelectedDoctorId}
+                                        >
+                                          <SelectTrigger className="w-48">
+                                            <SelectValue placeholder="Select doctor" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {doctors.map((doctor) => (
+                                              <SelectItem key={doctor.id} value={doctor.id}>
+                                                {doctor.full_name} ({doctor.alias})
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        <Button 
+                                          size="sm" 
+                                          onClick={() => saveAssignmentChange(assignment.id)}
+                                          disabled={!selectedDoctorId}
+                                        >
+                                          <Save className="h-3 w-3" />
+                                        </Button>
+                                        <Button 
+                                          size="sm" 
+                                          variant="outline" 
+                                          onClick={cancelEditing}
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-2">
+                                        <div>
+                                          <p className="font-medium">{assignment.doctor.full_name}</p>
+                                          <p className="text-sm text-muted-foreground">
+                                            {assignment.doctor.alias}
+                                            {!assignment.is_original && (
+                                              <span className="ml-2 text-xs text-orange-600">(Modified)</span>
+                                            )}
+                                            {leaveStatus === 'approved' && (
+                                              <span className="ml-2 text-xs text-red-600 font-medium">(Leave Approved)</span>
+                                            )}
+                                            {leaveStatus === 'pending' && (
+                                              <span className="ml-2 text-xs text-yellow-600 font-medium">(Leave Pending)</span>
+                                            )}
+                                          </p>
+                                        </div>
+                                        <Button 
+                                          size="sm" 
+                                          variant="ghost" 
+                                          onClick={() => startEditing(assignment)}
+                                        >
+                                          <Edit className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    )}
                                   </div>
-                                ) : (
-                                  <div className="flex items-center gap-2">
-                                     <div>
-                                       <p className="font-medium">{assignment.doctor.full_name}</p>
-                                       <p className="text-sm text-muted-foreground">
-                                         {assignment.doctor.alias}
-                                         {!assignment.is_original && (
-                                           <span className="ml-2 text-xs text-orange-600">(Modified)</span>
-                                         )}
-                                         {leaveStatus === 'approved' && (
-                                           <span className="ml-2 text-xs text-red-600 font-medium">(Leave Approved)</span>
-                                         )}
-                                         {leaveStatus === 'pending' && (
-                                           <span className="ml-2 text-xs text-yellow-600 font-medium">(Leave Pending)</span>
-                                         )}
-                                       </p>
-                                     </div>
-                                    <Button 
-                                      size="sm" 
-                                      variant="ghost" 
-                                      onClick={() => startEditing(assignment)}
-                                    >
-                                      <Edit className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                )}
-                              </div>
-                              <Badge variant="outline">
-                                {assignment.shift_type} shift
-                              </Badge>
-                             </div>
-                           );
-                           })}
-                         </div>
-                       ) : (
-                         <p className="text-muted-foreground text-sm">
-                           No assignments for this date
-                         </p>
-                       );
-                     })()}
-                   </div>
-                 )}
-
-                 {/* All Assignments List */}
-                 <div className="space-y-2">
-                   <h4 className="font-medium">All Assignments</h4>
-                   <div className="max-h-64 overflow-y-auto space-y-1">
-                     {assignments.map((assignment) => {
-                       const leaveStatus = getLeaveRequestStatus(assignment.doctor_id, assignment.date);
-                       return (
-                       <div
-                         key={assignment.id}
-                         className={`flex items-center justify-between p-2 text-sm border rounded ${getAssignmentStatusColor(assignment)}`}
-                      >
-                        <div className="flex-1">
-                          {editingAssignment === assignment.id ? (
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium min-w-16">
-                                {format(parseISO(assignment.date), 'MMM dd')}
-                              </span>
-                              <Select 
-                                value={selectedDoctorId} 
-                                onValueChange={setSelectedDoctorId}
-                              >
-                                <SelectTrigger className="w-40">
-                                  <SelectValue placeholder="Select doctor" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {doctors.map((doctor) => (
-                                    <SelectItem key={doctor.id} value={doctor.id}>
-                                      {doctor.alias}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Button 
-                                size="sm" 
-                                onClick={() => saveAssignmentChange(assignment.id)}
-                                disabled={!selectedDoctorId}
-                              >
-                                <Save className="h-3 w-3" />
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={cancelEditing}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
+                                  <Badge variant="outline">
+                                    {assignment.shift_type} shift
+                                  </Badge>
+                                </div>
+                              );
+                              })}
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium min-w-16">
-                                {format(parseISO(assignment.date), 'MMM dd')}
-                              </span>
-                              <span className="mx-2">-</span>
-                               <span>
-                                 {assignment.doctor.full_name}
-                                 {!assignment.is_original && (
-                                   <span className="ml-1 text-xs text-orange-600">(Modified)</span>
-                                 )}
-                                 {leaveStatus === 'approved' && (
-                                   <span className="ml-1 text-xs text-red-600 font-medium">(Leave Approved)</span>
-                                 )}
-                                 {leaveStatus === 'pending' && (
-                                   <span className="ml-1 text-xs text-yellow-600 font-medium">(Leave Pending)</span>
-                                 )}
+                            <p className="text-muted-foreground text-sm">
+                              No assignments for this date
+                            </p>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  renderTableView()
+                )}
+
+                {/* All Assignments List - Only show in calendar view */}
+                {viewMode === 'calendar' && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium">All Assignments</h4>
+                    <div className="max-h-64 overflow-y-auto space-y-1">
+                      {assignments.map((assignment) => {
+                        const leaveStatus = getLeaveRequestStatus(assignment.doctor_id, assignment.date);
+                        return (
+                        <div
+                          key={assignment.id}
+                          className={`flex items-center justify-between p-2 text-sm border rounded ${getAssignmentStatusColor(assignment)}`}
+                       >
+                         <div className="flex-1">
+                           {editingAssignment === assignment.id ? (
+                             <div className="flex items-center gap-2">
+                               <span className="font-medium min-w-16">
+                                 {format(parseISO(assignment.date), 'MMM dd')}
                                </span>
+                               <Select 
+                                 value={selectedDoctorId} 
+                                 onValueChange={setSelectedDoctorId}
+                               >
+                                 <SelectTrigger className="w-40">
+                                   <SelectValue placeholder="Select doctor" />
+                                 </SelectTrigger>
+                                 <SelectContent>
+                                   {doctors.map((doctor) => (
+                                     <SelectItem key={doctor.id} value={doctor.id}>
+                                       {doctor.alias}
+                                     </SelectItem>
+                                   ))}
+                                 </SelectContent>
+                               </Select>
                                <Button 
                                  size="sm" 
-                                 variant="ghost" 
-                                 onClick={() => startEditing(assignment)}
+                                 onClick={() => saveAssignmentChange(assignment.id)}
+                                 disabled={!selectedDoctorId}
                                >
-                                 <Edit className="h-3 w-3" />
+                                 <Save className="h-3 w-3" />
+                               </Button>
+                               <Button 
+                                 size="sm" 
+                                 variant="outline" 
+                                 onClick={cancelEditing}
+                               >
+                                 <X className="h-3 w-3" />
                                </Button>
                              </div>
-                           )}
-                         </div>
-                         <Badge variant="outline" className="text-xs">
-                           {assignment.shift_type}
-                         </Badge>
-                       </div>
-                     );
-                     })}
-                   </div>
-                 </div>
+                           ) : (
+                             <div className="flex items-center gap-2">
+                               <span className="font-medium min-w-16">
+                                 {format(parseISO(assignment.date), 'MMM dd')}
+                               </span>
+                               <span className="mx-2">-</span>
+                                <span>
+                                  {assignment.doctor.full_name}
+                                  {!assignment.is_original && (
+                                    <span className="ml-1 text-xs text-orange-600">(Modified)</span>
+                                  )}
+                                  {leaveStatus === 'approved' && (
+                                    <span className="ml-1 text-xs text-red-600 font-medium">(Leave Approved)</span>
+                                  )}
+                                  {leaveStatus === 'pending' && (
+                                    <span className="ml-1 text-xs text-yellow-600 font-medium">(Leave Pending)</span>
+                                  )}
+                                </span>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  onClick={() => startEditing(assignment)}
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {assignment.shift_type}
+                          </Badge>
+                        </div>
+                      );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-8">
