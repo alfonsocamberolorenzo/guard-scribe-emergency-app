@@ -16,8 +16,8 @@ interface Doctor {
 }
 
 interface DoctorListProps {
-  onAddDoctor: () => void;
-  onEditDoctor: (doctor: Doctor) => void;
+  onAddDoctor: (allDoctors: Doctor[]) => void;
+  onEditDoctor: (doctor: Doctor, allDoctors: Doctor[]) => void;
   refreshTrigger: number;
 }
 
@@ -112,7 +112,7 @@ export function DoctorList({ onAddDoctor, onEditDoctor, refreshTrigger }: Doctor
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Doctors ({doctors.length})</h2>
-        <Button onClick={onAddDoctor}>
+        <Button onClick={() => onAddDoctor(doctors)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Doctor
         </Button>
@@ -177,7 +177,7 @@ export function DoctorList({ onAddDoctor, onEditDoctor, refreshTrigger }: Doctor
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => onEditDoctor(doctor)}
+                      onClick={() => onEditDoctor(doctor, doctors)}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>

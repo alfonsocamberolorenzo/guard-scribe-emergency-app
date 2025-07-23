@@ -20,16 +20,19 @@ const Index = () => {
   const [currentView, setCurrentView] = useState('doctors');
   const [showForm, setShowForm] = useState(false);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | undefined>();
+  const [allDoctorsList, setAllDoctorsList] = useState([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const handleAddDoctor = () => {
+  const handleAddDoctor = (allDoctors: Doctor[]) => {
     setEditingDoctor(undefined);
     setShowForm(true);
+    setAllDoctorsList(allDoctors);
   };
 
-  const handleEditDoctor = (doctor: Doctor) => {
+  const handleEditDoctor = (doctor: Doctor, allDoctors: Doctor[]) => {
     setEditingDoctor(doctor);
     setShowForm(true);
+    setAllDoctorsList(allDoctors);
   };
 
   const handleSave = () => {
@@ -60,7 +63,7 @@ const Index = () => {
                 doctor={editingDoctor}
                 onSave={handleSave}
                 onCancel={handleCancel}
-                allDoctors={[]}
+                allDoctors={allDoctorsList}
               />
             </div>
           );
