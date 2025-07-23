@@ -48,7 +48,8 @@ export const LeaveRequests = () => {
     doctor_id: '',
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
-    reason: ''
+    reason: '',
+    customReason: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -92,13 +93,25 @@ export const LeaveRequests = () => {
     }
   };
 
+  const leaveReasons = [
+    "Vacaciones",
+    "Libre disposición", 
+    "Enfermedad de familiar",
+    "Enfermedad sin ILT",
+    "ILT",
+    "Formación",
+    "Otros"
+  ];
+
   const startEdit = (request: LeaveRequest) => {
     setEditingRequest(request);
+    const isCustomReason = !leaveReasons.slice(0, -1).includes(request.reason || '');
     setFormData({
       doctor_id: request.doctor_id,
       start_date: parseISO(request.start_date),
       end_date: parseISO(request.end_date),
-      reason: request.reason || ''
+      reason: isCustomReason ? 'Otros' : (request.reason || ''),
+      customReason: isCustomReason ? (request.reason || '') : ''
     });
     setShowForm(true);
   };
@@ -109,7 +122,8 @@ export const LeaveRequests = () => {
       doctor_id: '',
       start_date: undefined,
       end_date: undefined,
-      reason: ''
+      reason: '',
+      customReason: ''
     });
     setShowForm(false);
   };
@@ -140,7 +154,7 @@ export const LeaveRequests = () => {
         doctor_id: formData.doctor_id,
         start_date: format(formData.start_date, 'yyyy-MM-dd'),
         end_date: format(formData.end_date, 'yyyy-MM-dd'),
-        reason: formData.reason,
+        reason: formData.reason === 'Otros' ? formData.customReason : formData.reason,
         status: editingRequest ? editingRequest.status : 'pending'
       };
 
@@ -172,7 +186,8 @@ export const LeaveRequests = () => {
         doctor_id: '',
         start_date: undefined,
         end_date: undefined,
-        reason: ''
+        reason: '',
+        customReason: ''
       });
       fetchData();
     } catch (error) {
@@ -381,13 +396,31 @@ export const LeaveRequests = () => {
 
               <div>
                 <label className="text-sm font-medium mb-2 block">Reason</label>
-                <Textarea
-                  value={formData.reason}
-                  onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
-                  placeholder="Enter reason for leave..."
-                  rows={3}
-                />
+                <Select value={formData.reason} onValueChange={(value) => setFormData(prev => ({ ...prev, reason: value, customReason: value === 'Otros' ? prev.customReason : '' }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leaveReasons.map((reason) => (
+                      <SelectItem key={reason} value={reason}>
+                        {reason}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              {formData.reason === 'Otros' && (
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Specify other reason</label>
+                  <Textarea
+                    value={formData.customReason}
+                    onChange={(e) => setFormData(prev => ({ ...prev, customReason: e.target.value }))}
+                    placeholder="Enter custom reason..."
+                    rows={3}
+                  />
+                </div>
+              )}
 
               <div className="flex gap-2 pt-4">
                 <Button onClick={cancelEdit} variant="outline" className="flex-1">
