@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -31,6 +32,8 @@ interface LeaveRequest {
   requested_at: string;
   reviewed_at?: string;
   notes?: string;
+  has_substitute?: boolean;
+  substitute_name?: string;
   doctor: {
     full_name: string;
     alias: string;
@@ -49,7 +52,9 @@ export const LeaveRequests = () => {
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
     reason: '',
-    customReason: ''
+    customReason: '',
+    has_substitute: false,
+    substitute_name: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -111,7 +116,9 @@ export const LeaveRequests = () => {
       start_date: parseISO(request.start_date),
       end_date: parseISO(request.end_date),
       reason: isCustomReason ? 'Otros' : (request.reason || ''),
-      customReason: isCustomReason ? (request.reason || '') : ''
+      customReason: isCustomReason ? (request.reason || '') : '',
+      has_substitute: request.has_substitute || false,
+      substitute_name: request.substitute_name || ''
     });
     setShowForm(true);
   };
@@ -123,7 +130,9 @@ export const LeaveRequests = () => {
       start_date: undefined,
       end_date: undefined,
       reason: '',
-      customReason: ''
+      customReason: '',
+      has_substitute: false,
+      substitute_name: ''
     });
     setShowForm(false);
   };
@@ -155,6 +164,8 @@ export const LeaveRequests = () => {
         start_date: format(formData.start_date, 'yyyy-MM-dd'),
         end_date: format(formData.end_date, 'yyyy-MM-dd'),
         reason: formData.reason === 'Otros' ? formData.customReason : formData.reason,
+        has_substitute: formData.has_substitute,
+        substitute_name: formData.has_substitute ? formData.substitute_name : null,
         status: editingRequest ? editingRequest.status : 'pending'
       };
 
@@ -187,7 +198,9 @@ export const LeaveRequests = () => {
         start_date: undefined,
         end_date: undefined,
         reason: '',
-        customReason: ''
+        customReason: '',
+        has_substitute: false,
+        substitute_name: ''
       });
       fetchData();
     } catch (error) {
@@ -422,6 +435,34 @@ export const LeaveRequests = () => {
                 </div>
               )}
 
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="has_substitute"
+                    checked={formData.has_substitute}
+                    onCheckedChange={(checked) => setFormData(prev => ({ 
+                      ...prev, 
+                      has_substitute: checked as boolean,
+                      substitute_name: checked ? prev.substitute_name : ''
+                    }))}
+                  />
+                  <label htmlFor="has_substitute" className="text-sm font-medium">
+                    Do you have a substitute?
+                  </label>
+                </div>
+
+                {formData.has_substitute && (
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Substitute Name</label>
+                    <Input
+                      value={formData.substitute_name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, substitute_name: e.target.value }))}
+                      placeholder="Enter substitute name..."
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-2 pt-4">
                 <Button onClick={cancelEdit} variant="outline" className="flex-1">
                   Cancel
@@ -478,6 +519,12 @@ export const LeaveRequests = () => {
                     {request.notes && (
                       <div className="text-sm">
                         <strong>Notes:</strong> {request.notes}
+                      </div>
+                    )}
+
+                    {request.has_substitute && request.substitute_name && (
+                      <div className="text-sm">
+                        <strong>Substitute:</strong> {request.substitute_name}
                       </div>
                     )}
                   </div>

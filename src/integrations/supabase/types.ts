@@ -200,6 +200,7 @@ export type Database = {
           created_at: string
           doctor_id: string
           end_date: string
+          has_substitute: boolean | null
           id: string
           notes: string | null
           reason: string | null
@@ -208,12 +209,14 @@ export type Database = {
           reviewed_by: string | null
           start_date: string
           status: string
+          substitute_name: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           doctor_id: string
           end_date: string
+          has_substitute?: boolean | null
           id?: string
           notes?: string | null
           reason?: string | null
@@ -222,12 +225,14 @@ export type Database = {
           reviewed_by?: string | null
           start_date: string
           status?: string
+          substitute_name?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           doctor_id?: string
           end_date?: string
+          has_substitute?: boolean | null
           id?: string
           notes?: string | null
           reason?: string | null
@@ -236,6 +241,7 @@ export type Database = {
           reviewed_by?: string | null
           start_date?: string
           status?: string
+          substitute_name?: string | null
           updated_at?: string
         }
         Relationships: [
