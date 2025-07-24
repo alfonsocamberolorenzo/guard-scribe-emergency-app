@@ -115,7 +115,8 @@ export function Statistics() {
         `)
         .gte('date', format(startDate, 'yyyy-MM-dd'))
         .lte('date', format(endDate, 'yyyy-MM-dd'))
-        .in('doctor_id', selectedDoctors);
+        .in('doctor_id', selectedDoctors)
+        .eq('is_original', true); // Only include original assignments
 
       if (error) throw error;
 
