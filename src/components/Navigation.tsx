@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Calendar, CalendarCheck, FileText, Settings } from "lucide-react";
+import { Users, Calendar, CalendarCheck, FileText, Settings, BarChart3 } from "lucide-react";
 
 interface NavigationProps {
   currentView: string;
@@ -14,6 +14,7 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
     { id: 'schedule-generator', label: 'Generate Schedule', icon: CalendarCheck },
     { id: 'view-schedule', label: 'View Schedule', icon: FileText },
     { id: 'leave-requests', label: 'Leave Requests', icon: Settings },
+    { id: 'statistics', label: 'Statistics', icon: BarChart3 },
   ];
 
   return (

@@ -6,6 +6,7 @@ import { CalendarConfig } from "@/components/CalendarConfig";
 import { ScheduleGenerator } from "@/components/ScheduleGenerator";
 import { ViewSchedule } from "@/components/ViewSchedule";
 import { LeaveRequests } from "@/components/LeaveRequests";
+import { Statistics } from "@/components/Statistics";
 
 interface Doctor {
   id: string;
@@ -87,6 +88,9 @@ const Index = () => {
       
       case 'leave-requests':
         return <LeaveRequests />;
+      
+      case 'statistics':
+        return <Statistics />;
       
       default:
         return null;
