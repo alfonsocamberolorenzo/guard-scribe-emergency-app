@@ -53,6 +53,38 @@ export function Statistics() {
     fetchDoctors();
   }, []);
 
+  // Set up real-time subscription for guard assignments
+  useEffect(() => {
+    const channel = supabase
+      .channel('guard-assignments-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'guard_assignments'
+        },
+        () => {
+          // Auto-refresh statistics when guard assignments change
+          if (startDate && endDate && selectedDoctors.length > 0) {
+            fetchStatistics();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [startDate, endDate, selectedDoctors]);
+
+  // Auto-generate statistics when filters change
+  useEffect(() => {
+    if (startDate && endDate && selectedDoctors.length > 0) {
+      fetchStatistics();
+    }
+  }, [startDate, endDate, selectedDoctors]);
+
   const fetchDoctors = async () => {
     try {
       const { data, error } = await supabase
@@ -267,8 +299,14 @@ export function Statistics() {
             disabled={!startDate || !endDate || selectedDoctors.length === 0 || loading}
             className="w-full"
           >
-            {loading ? "Generating Statistics..." : "Generate Statistics"}
+            {loading ? "Updating Statistics..." : "Refresh Statistics"}
           </Button>
+          
+          {startDate && endDate && selectedDoctors.length > 0 && (
+            <p className="text-sm text-muted-foreground text-center">
+              Statistics update automatically when schedules are modified
+            </p>
+          )}
         </CardContent>
       </Card>
 
