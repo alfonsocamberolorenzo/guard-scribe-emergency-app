@@ -111,7 +111,7 @@ export function Statistics() {
           doctor_id,
           date,
           shift_type,
-          doctors!inner(full_name, alias)
+          doctors!guard_assignments_doctor_id_fkey(full_name, alias)
         `)
         .gte('date', format(startDate, 'yyyy-MM-dd'))
         .lte('date', format(endDate, 'yyyy-MM-dd'))
