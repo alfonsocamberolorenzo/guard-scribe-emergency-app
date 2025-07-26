@@ -230,11 +230,20 @@ export function Statistics() {
     // Normalize value between 0 and 1
     const normalized = (value - min) / (max - min);
     
-    // Create color gradient from red to green
-    const red = Math.round(255 * (1 - normalized));
-    const green = Math.round(255 * normalized);
+    // Create color gradient from red to yellow to green
+    let red, green, blue = 0;
     
-    return `rgb(${red}, ${green}, 0, 0.3)`;
+    if (normalized < 0.5) {
+      // Red to Yellow (first half)
+      red = 255;
+      green = Math.round(255 * (normalized * 2));
+    } else {
+      // Yellow to Green (second half)
+      red = Math.round(255 * (2 - normalized * 2));
+      green = 255;
+    }
+    
+    return `rgb(${red}, ${green}, ${blue}, 0.3)`;
   };
 
   const getSortIcon = (columnKey: string) => {
@@ -305,6 +314,52 @@ export function Statistics() {
                   />
                 </PopoverContent>
               </Popover>
+            </div>
+          </div>
+
+          {/* Date Range Shortcuts */}
+          <div className="space-y-2">
+            <Label>Quick Date Ranges</Label>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const now = new Date();
+                  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+                  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                  setStartDate(firstDay);
+                  setEndDate(lastDay);
+                }}
+              >
+                Current Month
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const now = new Date();
+                  const firstDay = new Date(now.getFullYear(), 0, 1);
+                  const lastDay = new Date(now.getFullYear(), 11, 31);
+                  setStartDate(firstDay);
+                  setEndDate(lastDay);
+                }}
+              >
+                Current Year
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const now = new Date();
+                  const twelveMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+                  const lastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                  setStartDate(twelveMonthsAgo);
+                  setEndDate(lastMonth);
+                }}
+              >
+                Last 12 Months
+              </Button>
             </div>
           </div>
 
