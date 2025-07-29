@@ -500,7 +500,7 @@ return (
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Generate Guard Schedule
+            Generate Guard Schedule v2
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
