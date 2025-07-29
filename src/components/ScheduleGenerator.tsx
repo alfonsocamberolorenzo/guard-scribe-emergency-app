@@ -169,228 +169,111 @@ export const ScheduleGenerator = () => {
 
   type ShiftType = '7h' | '17h';
 
-  const generateAssignments = (
-    doctors: Doctor[],
-    guardDays: GuardDay[],
-    scheduleId: string,
-    guardAssignments: GuardAssignment[],
-    incompatibilities: any[]
-  ) => {
-    const schedule = [];
-    const doctorStats = new Map<string, any>();
-  
-    // Inicializar estadísticas por doctor
-    doctors.forEach(doctor => {
-      const historical = guardAssignments.filter(e => e.doctor_id === doctor.id);
-      const weekdays = Array(7).fill(0);
-      historical.forEach(item => weekdays[new Date(item.date).getDay()]++);
-      const lastDate =
-        historical.length > 0
-          ? historical.reduce((a, b) => new Date(a.date) > new Date(b.date) ? a : b).date
-          : null;
-  
-      doctorStats.set(doctor.id, {
-        '7h': historical.filter(e => e.shift_type === '7h').length,
-        '17h': historical.filter(e => e.shift_type === '17h').length,
-        total: historical.length,
-        weekdays,
-        lastGuardDate: lastDate,
-        assignedWeeks: new Set()
-      });
+  // Nueva función generateAssignments con lógica reescrita desde cero
+const generateAssignments = (
+  doctors: Doctor[],
+  guardDays: GuardDay[],
+  scheduleId: string,
+  guardAssignments: GuardAssignment[],
+  incompatibilities: any[]
+) => {
+  const schedule = [];
+  const doctorStats = new Map<string, any>();
+
+  // Inicializar estadísticas por doctor
+  doctors.forEach(doctor => {
+    const historical = guardAssignments.filter(e => e.doctor_id === doctor.id);
+    doctorStats.set(doctor.id, {
+      '7h': historical.filter(e => e.shift_type === '7h').length,
+      '17h': historical.filter(e => e.shift_type === '17h').length,
+      total: historical.length,
+      assignedDates: new Set(historical.map(e => e.date)),
+      assignedWeeks: new Set(historical.map(e => getWeekNumber(new Date(e.date))))
     });
-  
-    // Mapa de incompatibilidades bidireccionales
-    const incompatMap = new Map<string, Set<string>>();
-    incompatibilities.forEach(({ doctor_id, incompatible_doctor_id }) => {
-      if (!incompatMap.has(doctor_id)) incompatMap.set(doctor_id, new Set());
-      if (!incompatMap.has(incompatible_doctor_id)) incompatMap.set(incompatible_doctor_id, new Set());
-      incompatMap.get(doctor_id)!.add(incompatible_doctor_id);
-      incompatMap.get(incompatible_doctor_id)!.add(doctor_id);
-    });
-  
-    // Agrupar guardDays por semana
-    const weeks = new Map<number, GuardDay[]>();
-    guardDays.forEach(day => {
-      const w = getWeekNumber(new Date(day.date));
-      if (!weeks.has(w)) weeks.set(w, []);
-      weeks.get(w)!.push(day);
-    });
-  
-    const unassigned: { date: string, shiftType: ShiftType }[] = [];
-  
-    // Ronda 1 y 2
-    for (const [weekNumber, days] of weeks) {
-      for (const day of days) {
-        if (!day.is_guard_day) continue;
-        const date = new Date(day.date);
-        const iso = date.toISOString().split('T')[0];
-        const dayOfWeek = date.getDay();
-        const assignedToday = new Set<string>();
-        let shift17hCount = 0;
-  
-        for (const shiftType of ['7h', '17h', '17h'] as ShiftType[]) {
-          let eligible = doctors.filter(d =>
-            isEligible(d, doctorStats, date, weekNumber, shiftType, assignedToday, incompatMap, false, guardDays)
-          );
-  
-          // Ronda 2: Relajamos semana y días consecutivos
-          if (eligible.length === 0) {
-            eligible = doctors.filter(d =>
-              isEligible(d, doctorStats, date, weekNumber, shiftType, assignedToday, incompatMap, true, guardDays)
-            );
-          }
-  
-          if (eligible.length === 0) {
-            unassigned.push({ date: iso, shiftType });
-            continue;
-          }
-  
-          eligible.sort((a, b) => {
-            const sa = doctorStats.get(a.id);
-            const sb = doctorStats.get(b.id);
-            return (sa[shiftType] - sb[shiftType]) || (sa.total - sb.total);
+  });
+
+  // Agrupar días por semana
+  const weeks = new Map<number, GuardDay[]>();
+  guardDays.forEach(day => {
+    const w = getWeekNumber(new Date(day.date));
+    if (!weeks.has(w)) weeks.set(w, []);
+    weeks.get(w)!.push(day);
+  });
+
+  // Asignar guardias por día
+  for (const [weekNumber, days] of weeks) {
+    for (const day of days) {
+      if (!day.is_guard_day) continue;
+      const date = new Date(day.date);
+      const iso = date.toISOString().split('T')[0];
+      const dayOfWeek = date.getDay();
+
+      const shifts: { type: ShiftType, position: number }[] = [
+        { type: '7h', position: 1 },
+        { type: '17h', position: 1 },
+        { type: '17h', position: 2 }
+      ];
+
+      const assignedToday = new Set<string>();
+
+      for (const { type, position } of shifts) {
+        let eligible = doctors.filter(d => {
+          const stats = doctorStats.get(d.id);
+          const hasSameWeek = stats.assignedWeeks.has(weekNumber);
+          const hasConsecutive = stats.assignedDates.has(getISODateOffset(iso, -1)) || stats.assignedDates.has(getISODateOffset(iso, 1));
+          const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
+          return !unavailable && !hasSameWeek && !hasConsecutive && !assignedToday.has(d.id);
+        });
+
+        if (eligible.length === 0) {
+          // Relajar restricciones: permitir misma semana, pero no días consecutivos
+          eligible = doctors.filter(d => {
+            const stats = doctorStats.get(d.id);
+            const hasConsecutive = stats.assignedDates.has(getISODateOffset(iso, -1)) || stats.assignedDates.has(getISODateOffset(iso, 1));
+            const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
+            return !unavailable && !hasConsecutive && !assignedToday.has(d.id);
           });
-  
-          const selected = eligible[0];
-          const stats = doctorStats.get(selected.id);
-          let pos = 1;
-          if (shiftType === '17h') {
-            const existing = schedule.filter(s => s.date === iso && s.shift_type === '17h');
-            if (existing.some(s => s.shift_position === 1)) pos = 2;
-          }
-  
-          schedule.push({
-            schedule_id: scheduleId,
-            doctor_id: selected.id,
-            date: iso,
-            shift_type: shiftType,
-            shift_position: pos,
-            is_original: true
-          });
-  
-          stats[shiftType]++;
-          stats.total++;
-          stats.lastGuardDate = iso;
-          stats.assignedWeeks.add(weekNumber);
-          assignedToday.add(selected.id);
         }
-      }
-    }
-  
-    // Ronda 3: Reasignar guardias previas a otra semana
-    const reassigned = [];
-    for (const { date, shiftType } of unassigned.slice()) {
-      const iso = date;
-      const week = getWeekNumber(new Date(date));
-      const dow = new Date(date).getDay();
-      const candidates = doctors.filter(d => !d.unavailable_weekdays.includes(dow));
-      candidates.sort((a, b) => doctorStats.get(a.id).total - doctorStats.get(b.id).total);
-  
-      for (const cand of candidates) {
-        const stats = doctorStats.get(cand.id);
-        const other = schedule.find(s =>
-          s.doctor_id === cand.id &&
-          getWeekNumber(new Date(s.date)) !== week &&
-          s.shift_type === shiftType
-        );
-        if (other) {
-          schedule.push({
-            schedule_id: scheduleId,
-            doctor_id: cand.id,
-            date: iso,
-            shift_type: shiftType,
-            shift_position: shiftType === '7h' ? 1 : 2,
-            is_original: false
+
+        if (eligible.length === 0) {
+          // Último recurso: permitir todo excepto día consecutivo
+          eligible = doctors.filter(d => {
+            const stats = doctorStats.get(d.id);
+            const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
+            return !unavailable && !assignedToday.has(d.id);
           });
-          stats[shiftType]++;
-          stats.total++;
-          stats.assignedWeeks.add(week);
-          reassigned.push(other);
-          break;
         }
-      }
-    }
-  
-    reassigned.forEach(r => {
-      const i = schedule.findIndex(s =>
-        s.date === r.date &&
-        s.doctor_id === r.doctor_id &&
-        s.shift_type === r.shift_type
-      );
-      if (i !== -1) schedule.splice(i, 1);
-    });
-  
-    // Ronda 4: Permitir doble guardia semanal si es necesario
-    for (const { date, shiftType } of unassigned.slice()) {
-      const iso = date;
-      const week = getWeekNumber(new Date(date));
-      const dow = new Date(date).getDay();
-  
-      const candidates = doctors.filter(d => {
-        const stats = doctorStats.get(d.id);
-        const sameWeek = Array.from(schedule).filter(s =>
-          s.doctor_id === d.id &&
-          getWeekNumber(new Date(s.date)) === week
-        );
-        const hasShift = sameWeek.some(s => s.shift_type === shiftType);
-        return !d.unavailable_weekdays.includes(dow) && !hasShift;
-      });
-  
-      candidates.sort((a, b) => doctorStats.get(a.id).total - doctorStats.get(b.id).total);
-      const selected = candidates[0];
-      if (selected) {
-        const stats = doctorStats.get(selected.id);
+
+        eligible.sort((a, b) => {
+          const sa = doctorStats.get(a.id);
+          const sb = doctorStats.get(b.id);
+          return (sa[type] - sb[type]) || (sa.total - sb.total);
+        });
+
+        const selected = eligible[0];
+        if (!selected) continue;
+
         schedule.push({
           schedule_id: scheduleId,
           doctor_id: selected.id,
           date: iso,
-          shift_type: shiftType,
-          shift_position: shiftType === '7h' ? 1 : 2,
-          is_original: false
+          shift_type: type,
+          shift_position: position,
+          is_original: true
         });
-        stats[shiftType]++;
+
+        const stats = doctorStats.get(selected.id);
+        stats[type]++;
         stats.total++;
-        stats.assignedWeeks.add(week);
+        stats.assignedDates.add(iso);
+        stats.assignedWeeks.add(weekNumber);
+        assignedToday.add(selected.id);
       }
     }
-  
-    // Mostrar resumen por doctor
-    console.table(Array.from(doctorStats.entries()).map(([id, s]) => ({
-      id,
-      total: s.total,
-      '7h': s['7h'],
-      '17h': s['17h']
-    })));
-  
-    return schedule;
-  };
-  
-  function isEligible(
-    doctor: Doctor,
-    statsMap: Map<string, any>,
-    date: Date,
-    week: number,
-    shiftType: ShiftType,
-    assignedToday: Set<string>,
-    incomp: Map<string, Set<string>>,
-    relaxed: boolean,
-    guardDays: GuardDay[]
-  ) {
-    const stats = statsMap.get(doctor.id);
-    const last = stats.lastGuardDate ? new Date(stats.lastGuardDate) : null;
-    const diff = last ? (date.getTime() - last.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
-    const incompWith = Array.from(assignedToday).some(id => incomp.get(doctor.id)?.has(id));
-  
-    return (
-      !doctor.unavailable_weekdays.includes(date.getDay()) &&
-      (shiftType === '7h'
-        ? stats['7h'] < getMaxPerDoctor(statsMap.size, guardDays, '7h', relaxed)
-        : stats['17h'] < getMaxPerDoctor(statsMap.size, guardDays, '17h', relaxed)) &&
-      (!relaxed ? diff >= 2 : true) &&
-      (!relaxed ? !stats.assignedWeeks.has(week) : true) &&
-      !incompWith
-    );
   }
+
+  return schedule;
+};
 
 function getWeekNumber(date: Date): number {
   const temp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -400,9 +283,10 @@ function getWeekNumber(date: Date): number {
   return Math.ceil((((temp.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
-function getMaxPerDoctor(numDoctors: number, guardDays: GuardDay[], shiftType: ShiftType, relaxed: boolean): number {
-  const totalShifts = guardDays.filter(d => d.is_guard_day).length * (shiftType === '7h' ? 1 : 2);
-  return relaxed ? Math.ceil(totalShifts / numDoctors) : Math.floor(totalShifts / numDoctors)
+function getISODateOffset(iso: string, offset: number): string {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().split('T')[0];
 }
   
 return (
@@ -411,7 +295,7 @@ return (
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Generate Guard Schedule v11
+            Generate Guard Schedule v12
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
