@@ -179,8 +179,6 @@ const generateAssignments = (
 ) => {
   const schedule = [];
   const doctorStats = new Map<string, any>();
-
-  // Inicializar estadísticas por doctor
   doctors.forEach(doctor => {
     const historical = guardAssignments.filter(e => e.doctor_id === doctor.id);
     doctorStats.set(doctor.id, {
@@ -192,32 +190,6 @@ const generateAssignments = (
     });
   });
 
-  // Calcular número total de guardias por tipo
-  const total7h = guardDays.filter(d => d.is_guard_day).length;
-  const total17h = total7h * 2;
-  const base7h = Math.floor(total7h / doctors.length);
-  const base17h = Math.floor(total17h / doctors.length);
-  const extra7h = total7h % doctors.length;
-  const extra17h = total17h % doctors.length;
-
-  // Asignar objetivos mensuales por tipo
-  const monthlyTargets = new Map<string, { '7h': number, '17h': number }>();
-  const sorted7h = [...doctors].sort((a, b) =>
-    doctorStats.get(a.id)['7h'] - doctorStats.get(b.id)['7h']
-  );
-  const sorted17h = [...doctors].sort((a, b) =>
-    doctorStats.get(a.id)['17h'] - doctorStats.get(b.id)['17h']
-  );
-
-  sorted7h.forEach((doc, i) => {
-    monthlyTargets.set(doc.id, { '7h': base7h + (i < extra7h ? 1 : 0), '17h': 0 });
-  });
-  sorted17h.forEach((doc, i) => {
-    const current = monthlyTargets.get(doc.id)!;
-    current['17h'] = base17h + (i < extra17h ? 1 : 0);
-  });
-
-  // Agrupar días por semana
   const weeks = new Map<number, GuardDay[]>();
   guardDays.forEach(day => {
     const w = getWeekNumber(new Date(day.date));
@@ -225,68 +197,63 @@ const generateAssignments = (
     weeks.get(w)!.push(day);
   });
 
-  // Asignar guardias por día
+  const total7h = guardDays.filter(d => d.is_guard_day).length;
+  const total17h = total7h * 2;
+  const base7h = Math.floor(total7h / doctors.length);
+  const base17h = Math.floor(total17h / doctors.length);
+  const extra7h = total7h % doctors.length;
+  const extra17h = total17h % doctors.length;
+
+  const monthlyQuota = new Map<string, { '7h': number, '17h': number }>();
+  const sorted7h = [...doctors].sort((a, b) => doctorStats.get(a.id)['7h'] - doctorStats.get(b.id)['7h']);
+  const sorted17h = [...doctors].sort((a, b) => doctorStats.get(a.id)['17h'] - doctorStats.get(b.id)['17h']);
+
+  sorted7h.forEach((d, i) => {
+    monthlyQuota.set(d.id, { '7h': base7h, '17h': base17h });
+  });
+  for (let i = 0; i < extra7h; i++) {
+    monthlyQuota.get(sorted7h[i].id)['7h']++;
+  }
+  for (let i = 0; i < extra17h; i++) {
+    monthlyQuota.get(sorted17h[i].id)['17h']++;
+  }
+
   for (const [weekNumber, days] of weeks) {
     for (const day of days) {
       if (!day.is_guard_day) continue;
       const date = new Date(day.date);
       const iso = date.toISOString().split('T')[0];
       const dayOfWeek = date.getDay();
-
       const shifts: { type: ShiftType, position: number }[] = [
         { type: '7h', position: 1 },
         { type: '17h', position: 1 },
         { type: '17h', position: 2 }
       ];
-
       const assignedToday = new Set<string>();
-
       for (const { type, position } of shifts) {
         let eligible = doctors.filter(d => {
           const stats = doctorStats.get(d.id);
+          const quota = monthlyQuota.get(d.id);
           const hasSameWeek = stats.assignedWeeks.has(weekNumber);
           const hasConsecutive = stats.assignedDates.has(getISODateOffset(iso, -1)) || stats.assignedDates.has(getISODateOffset(iso, 1));
           const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
-          const max7h = d.max_7h_guards ?? Infinity;
-          const max17h = d.max_17h_guards ?? Infinity;
-          const exceedsMax = (type === '7h' && stats['7h'] >= max7h) || (type === '17h' && stats['17h'] >= max17h);
-          const monthlyTarget = monthlyTargets.get(d.id);
-          const exceedsMonthly = stats[type] >= monthlyTarget?.[type];
-          return !unavailable && !hasSameWeek && !hasConsecutive && !assignedToday.has(d.id) && !exceedsMax && !exceedsMonthly;
+          return !unavailable && !hasSameWeek && !hasConsecutive && !assignedToday.has(d.id) && stats[type] < quota[type];
         });
-
         if (eligible.length === 0) {
           eligible = doctors.filter(d => {
             const stats = doctorStats.get(d.id);
-            const hasConsecutive = stats.assignedDates.has(getISODateOffset(iso, -1)) || stats.assignedDates.has(getISODateOffset(iso, 1));
+            const quota = monthlyQuota.get(d.id);
             const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
-            const max7h = d.max_7h_guards ?? Infinity;
-            const max17h = d.max_17h_guards ?? Infinity;
-            const exceedsMax = (type === '7h' && stats['7h'] >= max7h) || (type === '17h' && stats['17h'] >= max17h);
-            return !unavailable && !hasConsecutive && !assignedToday.has(d.id) && !exceedsMax;
+            return !unavailable && !assignedToday.has(d.id) && stats[type] < quota[type];
           });
         }
-
-        if (eligible.length === 0) {
-          eligible = doctors.filter(d => {
-            const stats = doctorStats.get(d.id);
-            const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
-            const max7h = d.max_7h_guards ?? Infinity;
-            const max17h = d.max_17h_guards ?? Infinity;
-            const exceedsMax = (type === '7h' && stats['7h'] >= max7h) || (type === '17h' && stats['17h'] >= max17h);
-            return !unavailable && !assignedToday.has(d.id) && !exceedsMax;
-          });
-        }
-
         eligible.sort((a, b) => {
           const sa = doctorStats.get(a.id);
           const sb = doctorStats.get(b.id);
           return (sa[type] - sb[type]) || (sa.total - sb.total);
         });
-
         const selected = eligible[0];
         if (!selected) continue;
-
         schedule.push({
           schedule_id: scheduleId,
           doctor_id: selected.id,
@@ -295,7 +262,6 @@ const generateAssignments = (
           shift_position: position,
           is_original: true
         });
-
         const stats = doctorStats.get(selected.id);
         stats[type]++;
         stats.total++;
@@ -305,7 +271,6 @@ const generateAssignments = (
       }
     }
   }
-
   return schedule;
 };
 
@@ -329,7 +294,7 @@ return (
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Generate Guard Schedule v20
+            Generate Guard Schedule v21
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
