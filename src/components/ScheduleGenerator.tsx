@@ -230,13 +230,13 @@ export const ScheduleGenerator = () => {
   
         for (const shiftType of ['7h', '17h', '17h'] as ShiftType[]) {
           let eligible = doctors.filter(d =>
-            isEligible(d, doctorStats, date, weekNumber, shiftType, assignedToday, incompatMap, false)
+            isEligible(d, doctorStats, date, weekNumber, shiftType, assignedToday, incompatMap, false, guardDays)
           );
   
           // Ronda 2: Relajamos semana y días consecutivos
           if (eligible.length === 0) {
             eligible = doctors.filter(d =>
-              isEligible(d, doctorStats, date, weekNumber, shiftType, assignedToday, incompatMap, true)
+              isEligible(d, doctorStats, date, weekNumber, shiftType, assignedToday, incompatMap, true, guardDays)
             );
           }
   
@@ -369,7 +369,8 @@ export const ScheduleGenerator = () => {
     shiftType: ShiftType,
     assignedToday: Set<string>,
     incomp: Map<string, Set<string>>,
-    relaxed: boolean
+    relaxed: boolean,
+    guardDays: GuardDay[]
   ) {
     const stats = statsMap.get(doctor.id);
     const last = stats.lastGuardDate ? new Date(stats.lastGuardDate) : null;
@@ -406,7 +407,7 @@ return (
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Generate Guard Schedule v8
+            Generate Guard Schedule v9
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
