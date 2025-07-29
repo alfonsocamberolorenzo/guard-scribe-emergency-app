@@ -253,7 +253,11 @@ export const ScheduleGenerator = () => {
   
           const selected = eligible[0];
           const stats = doctorStats.get(selected.id);
-          const pos = shiftType === '7h' ? 1 : ++shift17hCount;
+          let pos = 1;
+          if (shiftType === '17h') {
+            const existing = schedule.filter(s => s.date === iso && s.shift_type === '17h');
+            if (existing.some(s => s.shift_position === 1)) pos = 2;
+          }
   
           schedule.push({
             schedule_id: scheduleId,
@@ -407,7 +411,7 @@ return (
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Generate Guard Schedule v9
+            Generate Guard Schedule v10
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
