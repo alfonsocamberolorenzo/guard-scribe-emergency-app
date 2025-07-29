@@ -314,17 +314,6 @@ const generateAssignments = (doctors: Doctor[], guardDays: GuardDay[], scheduleI
         });
 
         const selected = eligibleDoctors[0];
-eligibleDoctors.sort((a, b) => {
-  const sa = doctorStats.get(a.id)!;
-  const sb = doctorStats.get(b.id)!;
-  const penaltyA = sa.assignedWeeks.has(weekNumber) ? 1 : 0;
-  const penaltyB = sb.assignedWeeks.has(weekNumber) ? 1 : 0;
-  return (
-    (sa[shiftType] - sb[shiftType]) ||
-    (sa.total - sb.total) ||
-    (penaltyA - penaltyB)
-  );
-});
         if (selected) {
           const stats = doctorStats.get(selected.id)!;
 
@@ -361,58 +350,135 @@ eligibleDoctors.sort((a, b) => {
     unassignedDays.forEach(d => console.warn('Fecha: ${d.date}, Turno: ${d.shiftType}'));
   }
 
-  return schedule;
+  
 
-// Mostrar resumen de asignaciones por semana y por médico
-const summaryByDoctor = new Map();
-schedule.forEach(a => {
-  if (!summaryByDoctor.has(a.doctor_id)) summaryByDoctor.set(a.doctor_id, []);
-  summaryByDoctor.get(a.doctor_id).push(a.date);
-});
-console.log('Resumen por médico:');
-summaryByDoctor.forEach((dates, doctorId) => {
-  console.log(`Doctor ${doctorId}: ${dates.length} guardias`, dates);
-});
+  // === TERCERA RONDA: Reasignación para balancear carga ===
+  if (unassignedDays.length > 0) {
+    const reassigned = [];
 
-// Fase de relleno para días no asignados
-for (const { date, shiftType } of unassignedDays) {
-  const isoDate = date;
-  const dayOfWeek = new Date(date).getDay();
-  const weekNumber = getWeekNumber(new Date(date));
-  const assignedOnDate = new Set(schedule.filter(a => a.date === isoDate).map(a => a.doctor_id));
-  const eligibleDoctors = doctors.filter(doctor => {
-    const stats = doctorStats.get(doctor.id)!;
-    const hasIncompatible = Array.from(assignedOnDate).some(id => incompatibilityMap.get(doctor.id)?.has(id));
-    return !doctor.unavailable_weekdays.includes(dayOfWeek) &&
-           (shiftType === '7h' ? stats['7h'] - stats['7h_init'] < getMaxPerDoctor(doctors.length, guardDays, '7h', true) :
-            stats['17h'] - stats['17h_init'] < getMaxPerDoctor(doctors.length, guardDays, '17h', true)) &&
-           !hasIncompatible &&
-           !stats.assignedWeeks.has(weekNumber);
-  });
-  eligibleDoctors.sort((a, b) => {
-    const sa = doctorStats.get(a.id)!;
-    const sb = doctorStats.get(b.id)!;
-    return (sa.total - sb.total);
-  });
-  const selected = eligibleDoctors[0];
-  if (selected) {
-    const stats = doctorStats.get(selected.id)!;
-    const shiftPosition = shiftType === '7h' ? 1 : 2;
-    schedule.push({
-      schedule_id: scheduleId,
-      doctor_id: selected.id,
-      date: isoDate,
-      shift_type: shiftType,
-      shift_position: shiftPosition,
-      is_original: false
-    });
-    stats[shiftType]++;
-    stats.total++;
-    stats.weekdays[dayOfWeek]++;
-    stats.lastGuardDate = isoDate;
-    stats.assignedWeeks.add(weekNumber);
+    for (const { date, shiftType } of unassignedDays) {
+      const isoDate = date;
+      const weekNumber = getWeekNumber(new Date(date));
+      const dayOfWeek = new Date(date).getDay();
+
+      // Buscar médicos con guardias ese día
+      const assignedThatDay = schedule.filter(a => a.date === isoDate).map(a => a.doctor_id);
+      const assignedThatWeek = schedule.filter(a => getWeekNumber(new Date(a.date)) === weekNumber).map(a => a.doctor_id);
+
+      // Buscar médicos con guardias en otras semanas
+      const candidates = doctors.filter(d => {
+        const stats = doctorStats.get(d.id)!;
+        return !d.unavailable_weekdays.includes(dayOfWeek) &&
+               (shiftType === '7h' ? stats['7h'] - stats['7h_init'] < getMaxPerDoctor(doctors.length, guardDays, '7h', true)
+                                   : stats['17h'] - stats['17h_init'] < getMaxPerDoctor(doctors.length, guardDays, '17h', true));
+      });
+
+      // Ordenar por menor carga total
+      candidates.sort((a, b) => {
+        const sa = doctorStats.get(a.id)!;
+        const sb = doctorStats.get(b.id)!;
+        return sa.total - sb.total;
+      });
+
+      for (const candidate of candidates) {
+        const stats = doctorStats.get(candidate.id)!;
+
+        // Buscar si tiene guardia en otra semana que pueda moverse
+        const movable = schedule.find(a =>
+          a.doctor_id === candidate.id &&
+          getWeekNumber(new Date(a.date)) !== weekNumber &&
+          a.shift_type === shiftType
+        );
+
+        if (movable) {
+          // Reasignar la guardia original
+          movable.doctor_id = "__REASSIGNED__";
+          reassigned.push({ ...movable });
+
+          // Asignar nueva guardia
+          schedule.push({
+            schedule_id: scheduleId,
+            doctor_id: candidate.id,
+            date: isoDate,
+            shift_type: shiftType,
+            shift_position: shiftType === '7h' ? 1 : 2,
+            is_original: false
+          });
+
+          stats[shiftType]++;
+          stats.total++;
+          stats.assignedWeeks.add(weekNumber);
+          break;
+        }
+      }
+    }
+
+    // Eliminar las guardias marcadas como "__REASSIGNED__"
+    for (const r of reassigned) {
+      const index = schedule.findIndex(a => a.date === r.date && a.doctor_id === "__REASSIGNED__" && a.shift_type === r.shift_type);
+      if (index !== -1) schedule.splice(index, 1);
+    }
   }
-}
+
+  // === CUARTA RONDA: Permitir doble guardia semanal (una de 7h y otra de 17h) ===
+  if (unassignedDays.length > 0) {
+    for (const { date, shiftType } of unassignedDays) {
+      const isoDate = date;
+      const weekNumber = getWeekNumber(new Date(date));
+      const dayOfWeek = new Date(date).getDay();
+
+      const candidates = doctors.filter(d => {
+        const stats = doctorStats.get(d.id)!;
+        const hasSameWeek = Array.from(schedule).some(a =>
+          a.doctor_id === d.id &&
+          getWeekNumber(new Date(a.date)) === weekNumber
+        );
+
+        const has7h = Array.from(schedule).some(a =>
+          a.doctor_id === d.id &&
+          getWeekNumber(new Date(a.date)) === weekNumber &&
+          a.shift_type === '7h'
+        );
+
+        const has17h = Array.from(schedule).some(a =>
+          a.doctor_id === d.id &&
+          getWeekNumber(new Date(a.date)) === weekNumber &&
+          a.shift_type === '17h'
+        );
+
+        const allowDouble = (shiftType === '7h' && !has7h) || (shiftType === '17h' && !has17h);
+
+        return !d.unavailable_weekdays.includes(dayOfWeek) &&
+               allowDouble &&
+               (shiftType === '7h' ? stats['7h'] - stats['7h_init'] < getMaxPerDoctor(doctors.length, guardDays, '7h', true)
+                                   : stats['17h'] - stats['17h_init'] < getMaxPerDoctor(doctors.length, guardDays, '17h', true));
+      });
+
+      candidates.sort((a, b) => {
+        const sa = doctorStats.get(a.id)!;
+        const sb = doctorStats.get(b.id)!;
+        return sa.total - sb.total;
+      });
+
+      const selected = candidates[0];
+      if (selected) {
+        const stats = doctorStats.get(selected.id)!;
+        schedule.push({
+          schedule_id: scheduleId,
+          doctor_id: selected.id,
+          date: isoDate,
+          shift_type: shiftType,
+          shift_position: shiftType === '7h' ? 1 : 2,
+          is_original: false
+        });
+        stats[shiftType]++;
+        stats.total++;
+        stats.assignedWeeks.add(weekNumber);
+      }
+    }
+  }
+
+return schedule;
 };
 
 function getWeekNumber(date: Date): number {
