@@ -189,8 +189,8 @@ for (const day of guardDays) {
         for (const doctor of doctors) {
             const stats = doctorStats.get(doctor.id) || { '7h': 0, '17h': 0, total: 0, assignedWeeks: new Set() };
             if (doctor.unavailable_weekdays.includes(dayOfWeek)) continue;
-            if (shiftType === '7h' and stats['7h'] >= getMaxPerDoctor(doctors.length, guardDays, '7h', true)) continue;
-            if (shiftType === '17h' and stats['17h'] >= getMaxPerDoctor(doctors.length, guardDays, '17h', true)) continue;
+            if (shiftType === '7h' && stats['7h'] >= getMaxPerDoctor(doctors.length, guardDays, '7h', true)) continue;
+            if (shiftType === '17h' && stats['17h'] >= getMaxPerDoctor(doctors.length, guardDays, '17h', true)) continue;
             if (stats.assignedWeeks.has(weekNumber)) continue;
             if (assignedOnDate.has(doctor.id)) continue;
 
@@ -209,7 +209,7 @@ for (const day of guardDays) {
             doctorStats.set(doctor.id, stats);
             assignedOnDate.add(doctor.id);
             if (shiftType === '17h') shift17hCount++;
-            assigned = True;
+            assigned = true;
             console.log(`Asignado ${shiftType} a ${doctor.alias} en ${isoDate}`);
             break;
         }
