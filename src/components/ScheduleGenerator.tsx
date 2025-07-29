@@ -183,24 +183,16 @@ const generateAssignments = (
   // Inicializar estadísticas por doctor
   doctors.forEach(doctor => {
     const historical = guardAssignments.filter(e => e.doctor_id === doctor.id);
-    const weekdays7h = Array(7).fill(0);
-    const weekdays17h = Array(7).fill(0);
-    historical.forEach(item => {
-      const dow = new Date(item.date).getDay();
-      if (item.shift_type === '7h') weekdays7h[dow]++;
-      if (item.shift_type === '17h') weekdays17h[dow]++;
-    });
     doctorStats.set(doctor.id, {
       '7h': historical.filter(e => e.shift_type === '7h').length,
       '17h': historical.filter(e => e.shift_type === '17h').length,
       total: historical.length,
-      weekdays7h,
-      weekdays17h,
       assignedDates: new Set(historical.map(e => e.date)),
       assignedWeeks: new Set(historical.map(e => getWeekNumber(new Date(e.date))))
     });
   });
 
+  // Agrupar días por semana
   const weeks = new Map<number, GuardDay[]>();
   guardDays.forEach(day => {
     const w = getWeekNumber(new Date(day.date));
@@ -208,6 +200,7 @@ const generateAssignments = (
     weeks.get(w)!.push(day);
   });
 
+  // Asignar guardias por día
   for (const [weekNumber, days] of weeks) {
     for (const day of days) {
       if (!day.is_guard_day) continue;
@@ -229,42 +222,37 @@ const generateAssignments = (
           const hasSameWeek = stats.assignedWeeks.has(weekNumber);
           const hasConsecutive = stats.assignedDates.has(getISODateOffset(iso, -1)) || stats.assignedDates.has(getISODateOffset(iso, 1));
           const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
-          const max7h = d.max_7h_guards ?? Infinity;
-          const max17h = d.max_17h_guards ?? Infinity;
-          const exceedsMax = (type === '7h' && stats['7h'] >= max7h) || (type === '17h' && stats['17h'] >= max17h);
-          return !unavailable && !hasSameWeek && !hasConsecutive && !assignedToday.has(d.id) && !exceedsMax;
+          
+    const max7h = d.max_7h_guards ?? Infinity;
+    const max17h = d.max_17h_guards ?? Infinity;
+    const currentStats = doctorStats.get(d.id);
+    const exceedsMax = (type === '7h' && currentStats['7h'] >= max7h) || (type === '17h' && currentStats['17h'] >= max17h);
+    return !unavailable && !hasSameWeek && !hasConsecutive && !assignedToday.has(d.id) && !exceedsMax;
         });
 
         if (eligible.length === 0) {
+          // Relajar restricciones: permitir misma semana, pero no días consecutivos
           eligible = doctors.filter(d => {
             const stats = doctorStats.get(d.id);
             const hasConsecutive = stats.assignedDates.has(getISODateOffset(iso, -1)) || stats.assignedDates.has(getISODateOffset(iso, 1));
             const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
-            const max7h = d.max_7h_guards ?? Infinity;
-            const max17h = d.max_17h_guards ?? Infinity;
-            const exceedsMax = (type === '7h' && stats['7h'] >= max7h) || (type === '17h' && stats['17h'] >= max17h);
-            return !unavailable && !hasConsecutive && !assignedToday.has(d.id) && !exceedsMax;
+            return !unavailable && !hasConsecutive && !assignedToday.has(d.id);
           });
         }
 
         if (eligible.length === 0) {
+          // Último recurso: permitir todo excepto día consecutivo
           eligible = doctors.filter(d => {
             const stats = doctorStats.get(d.id);
             const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
-            const max7h = d.max_7h_guards ?? Infinity;
-            const max17h = d.max_17h_guards ?? Infinity;
-            const exceedsMax = (type === '7h' && stats['7h'] >= max7h) || (type === '17h' && stats['17h'] >= max17h);
-            return !unavailable && !assignedToday.has(d.id) && !exceedsMax;
+            return !unavailable && !assignedToday.has(d.id);
           });
         }
 
         eligible.sort((a, b) => {
           const sa = doctorStats.get(a.id);
           const sb = doctorStats.get(b.id);
-          const weekdayKey = type === '7h' ? 'weekdays7h' : 'weekdays17h';
-          return (sa[type] - sb[type]) ||
-                 (sa.total - sb.total) ||
-                 (sa[weekdayKey][dayOfWeek] - sb[weekdayKey][dayOfWeek]);
+          return (sa[type] - sb[type]) || (sa.total - sb.total);
         });
 
         const selected = eligible[0];
@@ -284,8 +272,6 @@ const generateAssignments = (
         stats.total++;
         stats.assignedDates.add(iso);
         stats.assignedWeeks.add(weekNumber);
-        if (type === '7h') stats.weekdays7h[dayOfWeek]++;
-        if (type === '17h') stats.weekdays17h[dayOfWeek]++;
         assignedToday.add(selected.id);
       }
     }
@@ -314,7 +300,7 @@ return (
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Generate Guard Schedule v18
+            Generate Guard Schedule v19
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
