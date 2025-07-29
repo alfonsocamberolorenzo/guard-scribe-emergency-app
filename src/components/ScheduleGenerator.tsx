@@ -183,13 +183,10 @@ const generateAssignments = (
   // Inicializar estadísticas por doctor
   doctors.forEach(doctor => {
     const historical = guardAssignments.filter(e => e.doctor_id === doctor.id);
-    const weekdays = Array(7).fill(0);
-    historical.forEach(item => weekdays[new Date(item.date).getDay()]++);
     doctorStats.set(doctor.id, {
       '7h': historical.filter(e => e.shift_type === '7h').length,
       '17h': historical.filter(e => e.shift_type === '17h').length,
       total: historical.length,
-      weekdays,
       assignedDates: new Set(historical.map(e => e.date)),
       assignedWeeks: new Set(historical.map(e => getWeekNumber(new Date(e.date))))
     });
@@ -222,22 +219,29 @@ const generateAssignments = (
       for (const { type, position } of shifts) {
         let eligible = doctors.filter(d => {
           const stats = doctorStats.get(d.id);
-          const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
           const hasSameWeek = stats.assignedWeeks.has(weekNumber);
           const hasConsecutive = stats.assignedDates.has(getISODateOffset(iso, -1)) || stats.assignedDates.has(getISODateOffset(iso, 1));
-          return !unavailable && !hasSameWeek && !hasConsecutive && !assignedToday.has(d.id);
+          const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
+          
+    const max7h = d.max_7h_guards ?? Infinity;
+    const max17h = d.max_17h_guards ?? Infinity;
+    const currentStats = doctorStats.get(d.id);
+    const exceedsMax = (type === '7h' && currentStats['7h'] >= max7h) || (type === '17h' && currentStats['17h'] >= max17h);
+    return !unavailable && !hasSameWeek && !hasConsecutive && !assignedToday.has(d.id) && !exceedsMax;
         });
 
         if (eligible.length === 0) {
+          // Relajar restricciones: permitir misma semana, pero no días consecutivos
           eligible = doctors.filter(d => {
             const stats = doctorStats.get(d.id);
-            const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
             const hasConsecutive = stats.assignedDates.has(getISODateOffset(iso, -1)) || stats.assignedDates.has(getISODateOffset(iso, 1));
+            const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
             return !unavailable && !hasConsecutive && !assignedToday.has(d.id);
           });
         }
 
         if (eligible.length === 0) {
+          // Último recurso: permitir todo excepto día consecutivo
           eligible = doctors.filter(d => {
             const stats = doctorStats.get(d.id);
             const unavailable = d.unavailable_weekdays.includes(dayOfWeek);
@@ -248,11 +252,7 @@ const generateAssignments = (
         eligible.sort((a, b) => {
           const sa = doctorStats.get(a.id);
           const sb = doctorStats.get(b.id);
-          return (
-            sa[type] - sb[type] ||
-            sa.total - sb.total ||
-            sa.weekdays[dayOfWeek] - sb.weekdays[dayOfWeek]
-          );
+          return (sa[type] - sb[type]) || (sa.total - sb.total);
         });
 
         const selected = eligible[0];
@@ -270,7 +270,6 @@ const generateAssignments = (
         const stats = doctorStats.get(selected.id);
         stats[type]++;
         stats.total++;
-        stats.weekdays[dayOfWeek]++;
         stats.assignedDates.add(iso);
         stats.assignedWeeks.add(weekNumber);
         assignedToday.add(selected.id);
@@ -301,7 +300,7 @@ return (
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Generate Guard Schedule v15.1
+            Generate Guard Schedule v16
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
