@@ -245,7 +245,7 @@ const generateAssignments = (doctors: Doctor[], guardDays: GuardDay[], scheduleI
       const assignedOnDate = new Set<string>();
       let shift17hCount = 0;
 
-      for (const shiftType of ['7h', '17h', '17h'] as ShiftType[])) {
+      for (const shiftType of ['7h', '17h', '17h'] as ShiftType[]) {
         let eligibleDoctors = doctors.filter(doctor => {
           const stats = doctorStats.get(doctor.id)!;
           const lastDate = stats.lastGuardDate ? new Date(stats.lastGuardDate) : null;
