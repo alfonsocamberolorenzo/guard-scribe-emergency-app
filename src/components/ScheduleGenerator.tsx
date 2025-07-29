@@ -233,118 +233,62 @@ const generateAssignments = (doctors: Doctor[], guardDays: GuardDay[], scheduleI
 
   const unassignedDays: { date: string, shiftType: ShiftType }[] = [];
 
-  for (const [weekNumber, days] of weeks.entries()) {
-    for (const day of days) {
-      if (!day.is_guard_day) continue;
-
-      const date = new Date(day.date);
-      const dayOfWeek = date.getDay();
-      const isoDate = date.toISOString().split('T')[0];
-
-      // Track doctors assigned on this date to check incompatibilities
-      const assignedOnDate = new Set<string>();
-      let shift17hCount = 0;
-
-      for (const shiftType of ['7h', '17h', '17h'] as ShiftType[]) {
-        let eligibleDoctors = doctors.filter(doctor => {
-          const stats = doctorStats.get(doctor.id)!;
-          const lastDate = stats.lastGuardDate ? new Date(stats.lastGuardDate) : null;
-          const diffDays = lastDate ? (date.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
-
-          // Check if doctor is incompatible with already assigned doctors on this date
-          const hasIncompatibleAssignment = Array.from(assignedOnDate).some(assignedId => 
-            incompatibilityMap.get(doctor.id)?.has(assignedId)
-          );
-
-          return (
-            !doctor.unavailable_weekdays.includes(dayOfWeek) &&
-            (shiftType === '7h' ? stats['7h'] - stats['7h_init'] < getMaxPerDoctor(doctors.length, guardDays, '7h', false) : stats['17h'] - stats['17h_init'] < getMaxPerDoctor(doctors.length, guardDays, '17h', false)) &&
-            diffDays >= 2 &&
-            !stats.assignedWeeks.has(weekNumber) &&
-            !hasIncompatibleAssignment
-          );
+for (const [weekNumber, days] of weeks.entries()) {
+  for (const day of days) {
+    if (!day.is_guard_day) continue;
+    const date = new Date(day.date);
+    const dayOfWeek = date.getDay();
+    const isoDate = date.toISOString().split('T')[0];
+    const assignedOnDate = new Set<string>();
+    let shift17hCount = 0;
+    for (const shiftType of ['7h', '17h', '17h'] as ShiftType[]) {
+      let eligibleDoctors = doctors.filter(doctor => {
+        const stats = doctorStats.get(doctor.id)!;
+        const lastDate = stats.lastGuardDate ? new Date(stats.lastGuardDate) : null;
+        const diffDays = lastDate ? (date.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
+        const hasIncompatibleAssignment = Array.from(assignedOnDate).some(assignedId =>
+          incompatibilityMap.get(doctor.id)?.has(assignedId)
+        );
+        return (
+          !doctor.unavailable_weekdays.includes(dayOfWeek) &&
+          (shiftType === '7h' ? stats['7h'] - stats['7h_init'] < getMaxPerDoctor(doctors.length, guardDays, '7h', true) :
+           stats['17h'] - stats['17h_init'] < getMaxPerDoctor(doctors.length, guardDays, '17h', true)) &&
+          !hasIncompatibleAssignment
+        );
+      });
+      eligibleDoctors.sort((a, b) => {
+        const sa = doctorStats.get(a.id)!;
+        const sb = doctorStats.get(b.id)!;
+        return (sa[shiftType] - sb[shiftType]) || (sa.total - sb.total);
+      });
+      const selected = eligibleDoctors[0];
+      if (selected) {
+        const stats = doctorStats.get(selected.id)!;
+        const shiftPosition = shiftType === '7h' ? 1 : (shift17hCount === 0 ? 1 : 2);
+        if (shiftType === '17h') shift17hCount++;
+        schedule.push({
+          schedule_id: scheduleId,
+          doctor_id: selected.id,
+          date: isoDate,
+          shift_type: shiftType,
+          shift_position: shiftPosition,
+          is_original: true
         });
-
-        // Si no hay elegibles, relajar la restricción de una asignación por semana
-        if (eligibleDoctors.length === 0) {
-          eligibleDoctors = doctors.filter(doctor => {
-            const stats = doctorStats.get(doctor.id)!;
-            const lastDate = stats.lastGuardDate ? new Date(stats.lastGuardDate) : null;
-            const diffDays = lastDate ? (date.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
-
-            // Check incompatibilities even when relaxing week restriction
-            const hasIncompatibleAssignment = Array.from(assignedOnDate).some(assignedId => 
-              incompatibilityMap.get(doctor.id)?.has(assignedId)
-            );
-
-            return (
-              !doctor.unavailable_weekdays.includes(dayOfWeek) &&
-              (shiftType === '7h' ? stats['7h'] - stats['7h_init'] < getMaxPerDoctor(doctors.length, guardDays, '7h', true) : stats['17h'] - stats['17h_init'] < getMaxPerDoctor(doctors.length, guardDays, '17h', true)) &&
-              diffDays >= 2 &&
-              !hasIncompatibleAssignment
-            );
-          });
-        }
-
-        // Si aún no hay elegibles, relajar la restricción de días consecutivos
-        if (eligibleDoctors.length === 0) {
-          eligibleDoctors = doctors.filter(doctor => {
-            const stats = doctorStats.get(doctor.id)!;
-            
-            // Still check incompatibilities even when relaxing day restrictions
-            const hasIncompatibleAssignment = Array.from(assignedOnDate).some(assignedId => 
-              incompatibilityMap.get(doctor.id)?.has(assignedId)
-            );
-
-            return (
-              !doctor.unavailable_weekdays.includes(dayOfWeek) &&
-              (shiftType === '7h' ? stats['7h'] - stats['7h_init'] < getMaxPerDoctor(doctors.length, guardDays, '7h', true) : stats['17h'] - stats['17h_init'] < getMaxPerDoctor(doctors.length, guardDays, '17h', true)) &&
-              !hasIncompatibleAssignment
-            );
-          });
-        }
-
-        eligibleDoctors.sort((a, b) => {
-          const sa = doctorStats.get(a.id)!;
-          const sb = doctorStats.get(b.id)!;
-          return (
-            (sa[shiftType] - sb[shiftType]) ||
-            (sa.total - sb.total)
-          );
-        });
-
-        const selected = eligibleDoctors[0];
-        if (selected) {
-          const stats = doctorStats.get(selected.id)!;
-
-          const shiftPosition = shiftType === '7h' ? 1 : (shift17hCount === 0 ? 1 : 2);
-          if (shiftType === '17h') shift17hCount++;
-
-          schedule.push({
-            schedule_id: scheduleId,
-            doctor_id: selected.id,
-            date: isoDate,
-            shift_type: shiftType,
-            shift_position: shiftPosition,
-            is_original: true
-          });
-
-          stats[shiftType]++;
-          stats.total++;
-          stats.weekdays[dayOfWeek]++;
-          if (dayOfWeek === 4) stats.thursdays++;
-          stats.lastGuardDate = isoDate;
-          stats.assignedWeeks.add(weekNumber);
-          
-          // Track that this doctor is assigned on this date
-          assignedOnDate.add(selected.id);
-        } else {
-          unassignedDays.push({ date: isoDate, shiftType });
-        }
+        stats[shiftType]++;
+        stats.total++;
+        stats.weekdays[dayOfWeek]++;
+        if (dayOfWeek === 4) stats.thursdays++;
+        stats.lastGuardDate = isoDate;
+        stats.assignedWeeks.add(weekNumber);
+        assignedOnDate.add(selected.id);
+        console.log(`Asignado ${shiftType} a ${selected.alias} en ${isoDate}`);
+      } else {
+        unassignedDays.push({ date: isoDate, shiftType });
+        console.warn(`No asignado: ${shiftType} en ${isoDate}`);
       }
     }
   }
-
+}
   if (unassignedDays.length > 0) {
     console.warn("Días no asignados:");
     unassignedDays.forEach(d => console.warn('Fecha: ${d.date}, Turno: ${d.shiftType}'));
@@ -500,7 +444,7 @@ return (
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Generate Guard Schedule v3
+            Generate Guard Schedule v4
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
