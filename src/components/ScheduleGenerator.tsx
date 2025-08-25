@@ -24,6 +24,12 @@ const MONTHS = [
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR + i);
 
+const SHIFTS: { type: ShiftType; position: 1 | 2 }[] = [
+  { type: "7h",  position: 1 }, // 7h siempre 1
+  { type: "17h", position: 1 }, // primera 17h del día
+  { type: "17h", position: 2 }, // segunda 17h del día
+];
+
 interface Doctor {
   id: string;
   full_name: string;
@@ -228,7 +234,7 @@ export const ScheduleGenerator = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Generate Guard Schedule v22
+            Generate Guard Schedule v23
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -429,7 +435,7 @@ function generateAssignments(
           .filter((r) => r.date === iso)
           .map((r) => r.doctor_id);
 
-        // A) Intento con 1/semana (hard)
+        // A) Intento con 1/semana (hard). Permitimos exceder cuota para no romper 1/semana.
         let eligible = doctors.filter((doc) =>
           isEligible(
             doc,
@@ -445,33 +451,11 @@ function generateAssignments(
             weekNumber,
             assignedWeeksByDoctor,
             iso === day1 && isWeekday(dow) ? prevAssignmentsDay : undefined,
-            { weekCap: 1, weekCountByDoctor: weekMap }
+            { weekCap: 1, weekCountByDoctor: weekMap, allowExceedQuota: true }
           )
         );
 
-        // B) Si no hay candidatos suficientes, 2/semana (soft)
-        if (eligible.length === 0) {
-          eligible = doctors.filter((doc) =>
-            isEligible(
-              doc,
-              iso,
-              dow,
-              shift.type,
-              quotas,
-              monthTypeCount,
-              assignedDatesByDoctor,
-              todayAssigned,
-              incompatMap,
-              alreadyToday,
-              weekNumber,
-              assignedWeeksByDoctor,
-              iso === day1 && isWeekday(dow) ? prevAssignmentsDay : undefined,
-              { weekCap: 2, weekCountByDoctor: weekMap }
-            )
-          );
-        }
-
-        // C) Último recurso: permitir exceder cuota del tipo
+        // B) Si no hay candidatos, 2/semana (soft)
         if (eligible.length === 0) {
           eligible = doctors.filter((doc) =>
             isEligible(
@@ -493,9 +477,31 @@ function generateAssignments(
           );
         }
 
+        // C) Último recurso: sin cap semanal, manteniendo hard rules
+        if (eligible.length === 0) {
+          eligible = doctors.filter((doc) =>
+            isEligible(
+              doc,
+              iso,
+              dow,
+              shift.type,
+              quotas,
+              monthTypeCount,
+              assignedDatesByDoctor,
+              todayAssigned,
+              incompatMap,
+              alreadyToday,
+              undefined,
+              undefined,
+              iso === day1 && isWeekday(dow) ? prevAssignmentsDay : undefined,
+              { allowExceedQuota: true }
+            )
+          );
+        }
+
         if (eligible.length === 0) continue;
 
-        // Orden: déficit de tipo y total, DOW (con énfasis jueves), y menos carga en la semana
+        // Orden: déficit de tipo y total, DOW (con énfasis jueves), y menor carga semanal
         eligible.sort((a, b) =>
           compareCandidates(
             a,
@@ -624,41 +630,41 @@ function isEligible(
   assignedWeeksByDoctor?: Map<string, Set<number>>,
   forbiddenPrevDaySet?: Set<string>,
   opts?: {
-    weekCap?: number;                      // 1 por defecto: máximo 1/semana
+    weekCap?: number;                      // máximo por semana
     weekCountByDoctor?: Map<string, number>;
     allowExceedQuota?: boolean;
   }
 ): boolean {
-  // No dos turnos el mismo día
+  // no dos turnos el mismo día
   if (assignedToday.has(doc.id)) return false;
 
-  // Indisponibilidad por weekday
+  // indisponibilidad: weekdays
   if (doc.unavailable_weekdays?.includes(dow)) return false;
 
-  // Indisponibilidad por fechas concretas (vacaciones aprobadas)
+  // indisponibilidad: fechas concretas (vacaciones aprobadas)
   if (doc.unavailable_dates && doc.unavailable_dates.includes(iso)) return false;
 
-  // Prohibido consecutivos
+  // no consecutivos
   const hadPrev = assignedDatesByDoctor.get(doc.id)?.has(getISODateOffset(iso, -1));
   const hadNext = assignedDatesByDoctor.get(doc.id)?.has(getISODateOffset(iso, 1));
   if (hadPrev || hadNext) return false;
 
-  // Frontera mes anterior (día 1 laborable)
+  // frontera mes anterior (día 1 laborable)
   if (forbiddenPrevDaySet && forbiddenPrevDaySet.has(doc.id)) return false;
 
-  // Incompatibilidades con ya asignados hoy
+  // incompatibilidades con ya asignados hoy
   const incos = incompatibleMap.get(doc.id) || new Set<string>();
   for (const other of alreadyAssignedToday) {
     if (incos.has(other)) return false;
   }
 
-  // Límite por semana (cap)
+  // límite por semana (cap)
   if (opts?.weekCap != null && opts.weekCountByDoctor) {
     const used = opts.weekCountByDoctor.get(doc.id) || 0;
     if (used >= opts.weekCap) return false;
   }
 
-  // Cuotas / límites
+  // cuotas / límites
   const q = quotas.get(doc.id)!;
   const current = monthTypeCount[type][doc.id] || 0;
   if (!opts?.allowExceedQuota && current >= q[type]) return false;
