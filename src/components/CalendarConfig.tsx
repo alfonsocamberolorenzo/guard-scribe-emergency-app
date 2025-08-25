@@ -103,8 +103,9 @@ export function CalendarConfig() {
         description: "Guard days configuration saved successfully",
       });
 
+      // Reset changes flag first, then fetch fresh data
       setHasChanges(false);
-      fetchGuardDays(); // Refresh to get IDs
+      await fetchGuardDays(); // Refresh to get accurate state from database
     } catch (error) {
       console.error("Error saving guard days:", error);
       toast({
