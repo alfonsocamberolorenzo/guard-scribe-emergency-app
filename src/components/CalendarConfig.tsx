@@ -44,7 +44,7 @@ export function CalendarConfig() {
 
       if (error) throw error;
 
-      // Create all days of the month with default guard_day = true
+      // Create all days of the month, only use database value if it exists
       const daysInMonth = endDate.getDate();
       const allDays: GuardDay[] = [];
       
@@ -55,7 +55,7 @@ export function CalendarConfig() {
         allDays.push({
           id: existingDay?.id || '',
           date: dateStr,
-          is_guard_day: existingDay?.is_guard_day ?? true
+          is_guard_day: existingDay ? existingDay.is_guard_day : true
         });
       }
       
