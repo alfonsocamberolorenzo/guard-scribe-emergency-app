@@ -32,8 +32,8 @@ export function CalendarConfig() {
   const fetchGuardDays = async () => {
     setIsLoading(true);
     try {
-      const startDate = new Date(selectedYear, selectedMonth - 1, 1);
-      const endDate = new Date(selectedYear, selectedMonth, 0);
+      const startDate = new Date(selectedYear, selectedMonth - 1, 1, 12);
+      const endDate = new Date(selectedYear, selectedMonth, 0, 12);
       
       const { data, error } = await supabase
         .from("guard_days")
