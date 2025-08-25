@@ -24,12 +24,6 @@ const MONTHS = [
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR + i);
 
-const SHIFTS: { type: ShiftType; position: 1 | 2 }[] = [
-  { type: "7h",  position: 1 }, // 7h siempre 1
-  { type: "17h", position: 1 }, // primera 17h del día
-  { type: "17h", position: 2 }, // segunda 17h del día
-];
-
 interface Doctor {
   id: string;
   full_name: string;
@@ -102,7 +96,7 @@ export const ScheduleGenerator = () => {
         .eq("is_guard_day", true);
       if (guardDaysError) throw guardDaysError;
 
-      // Histórico (12 meses) para equilibrio largo y frontera mes anterior
+      // Histórico (máx. 12 meses) para equilibrio y frontera mes anterior
       const startDateStats = new Date(selectedYear, selectedMonth - 12, 1, 12);
       const endDateStats = new Date(selectedYear, selectedMonth, 0, 12);
       const { data: guardAssignments, error: guardAssignmentsError } = await supabase
@@ -145,22 +139,11 @@ export const ScheduleGenerator = () => {
         for (const row of leaves) {
           const s = new Date(row.start_date + "T00:00:00");
           const e = new Date(row.end_date + "T00:00:00");
-          const from = new Date(
-            Math.max(
-              s.getTime(),
-              new Date(startDate.toISOString().split("T")[0] + "T00:00:00").getTime()
-            )
-          );
-          const to = new Date(
-            Math.min(
-              e.getTime(),
-              new Date(endDate.toISOString().split("T")[0] + "T00:00:00").getTime()
-            )
-          );
+          const from = new Date(Math.max(s.getTime(), new Date(startDate.toISOString().split("T")[0] + "T00:00:00").getTime()));
+          const to = new Date(Math.min(e.getTime(), new Date(endDate.toISOString().split("T")[0] + "T00:00:00").getTime()));
           for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
             const iso = d.toISOString().split("T")[0];
-            if (!leaveDatesByDoctor.has(row.doctor_id))
-              leaveDatesByDoctor.set(row.doctor_id, new Set());
+            if (!leaveDatesByDoctor.has(row.doctor_id)) leaveDatesByDoctor.set(row.doctor_id, new Set());
             leaveDatesByDoctor.get(row.doctor_id)!.add(iso);
           }
         }
@@ -169,9 +152,7 @@ export const ScheduleGenerator = () => {
       // Enriquecer doctores con unavailable_dates (vacaciones)
       const doctorsWithLeaves: Doctor[] = (doctors as Doctor[]).map((d) => ({
         ...d,
-        unavailable_dates: Array.from(
-          leaveDatesByDoctor.get(d.id) || new Set<string>()
-        ),
+        unavailable_dates: Array.from(leaveDatesByDoctor.get(d.id) || new Set<string>()),
       }));
 
       // Crear schedule
@@ -234,7 +215,7 @@ export const ScheduleGenerator = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Generate Guard Schedule v23
+            Generate Guard Schedule v24
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -346,13 +327,13 @@ function generateAssignments(
   monthCtx: { month: number; year: number }
 ) {
   const SHIFTS: { type: ShiftType; position: 1 | 2 }[] = [
-    { type: "7h", position: 1 },
-    { type: "17h", position: 1 },
-    { type: "17h", position: 2 },
+    { type: "7h", position: 1 }, // 7h siempre 1
+    { type: "17h", position: 1 }, // 17h (1)
+    { type: "17h", position: 2 }, // 17h (2)
   ];
 
-  // Históricos (12 meses) para equilibrio largo + set de fechas previas
-  const history = buildHistory(doctors, guardAssignments);
+  // Históricos (máx 12 meses) para equilibrio largo + set de fechas previas
+  const history = buildHistory(doctors, guardAssignments, monthCtx.year);
 
   // Cuotas mensuales por tipo (respetando límites)
   const quotas = buildMonthlyQuotas(doctors, guardDays, history);
@@ -450,7 +431,7 @@ function generateAssignments(
             alreadyToday,
             weekNumber,
             assignedWeeksByDoctor,
-            iso === day1 && isWeekday(dow) ? prevAssignmentsDay : undefined,
+            isWeekday(dow) && iso === day1 ? prevAssignmentsDay : undefined,
             { weekCap: 1, weekCountByDoctor: weekMap, allowExceedQuota: true }
           )
         );
@@ -471,7 +452,7 @@ function generateAssignments(
               alreadyToday,
               weekNumber,
               assignedWeeksByDoctor,
-              iso === day1 && isWeekday(dow) ? prevAssignmentsDay : undefined,
+              isWeekday(dow) && iso === day1 ? prevAssignmentsDay : undefined,
               { weekCap: 2, weekCountByDoctor: weekMap, allowExceedQuota: true }
             )
           );
@@ -493,7 +474,7 @@ function generateAssignments(
               alreadyToday,
               undefined,
               undefined,
-              iso === day1 && isWeekday(dow) ? prevAssignmentsDay : undefined,
+              isWeekday(dow) && iso === day1 ? prevAssignmentsDay : undefined,
               { allowExceedQuota: true }
             )
           );
@@ -522,13 +503,13 @@ function generateAssignments(
 
         const chosen = eligible[0];
 
-        // Commit
+        // Commit (shift_position correcto)
         schedule.push({
           schedule_id: scheduleId,
           doctor_id: chosen.id,
           date: iso,
           shift_type: shift.type,
-          shift_position: shift.position,
+          shift_position: shift.position, // ✅ 7h→1, 17h→1/2
           is_original: true,
         });
 
@@ -585,32 +566,33 @@ function compareCandidates(
   const bTotDef = bTotQuota - (mTotal[b.id] || 0);
   if (aTotDef !== bTotDef) return bTotDef - aTotDef;
 
-  // 3) Equilibrio por DOW (corto + algo de histórico)
+  // 3) Equilibrio por DOW (corto)
   const aDowShort = mDOW[dow][a.id] || 0;
   const bDowShort = mDOW[dow][b.id] || 0;
   if (aDowShort !== bDowShort) return aDowShort - bDowShort;
 
-  const aDowLong = hist.totalsByDOW[dow]?.[a.id] || 0;
-  const bDowLong = hist.totalsByDOW[dow]?.[b.id] || 0;
+  // 4) DOW “largo” del año actual + lo ya asignado este mes (para no distorsionar)
+  const aDowLong = (hist.totalsByDOW[dow]?.[a.id] || 0) + (mDOW[dow][a.id] || 0);
+  const bDowLong = (hist.totalsByDOW[dow]?.[b.id] || 0) + (mDOW[dow][b.id] || 0);
   if (aDowLong !== bDowLong) return aDowLong - bDowLong;
 
-  // 4) Énfasis jueves: quien menos jueves lleve
+  // 5) Énfasis jueves
   if (dow === 4) {
     const aThuShort = mDOW[4][a.id] || 0;
     const bThuShort = mDOW[4][b.id] || 0;
     if (aThuShort !== bThuShort) return aThuShort - bThuShort;
 
-    const aThuLong = hist.totalsByDOW[4]?.[a.id] || 0;
-    const bThuLong = hist.totalsByDOW[4]?.[b.id] || 0;
+    const aThuLong = (hist.totalsByDOW[4]?.[a.id] || 0) + (mDOW[4][a.id] || 0);
+    const bThuLong = (hist.totalsByDOW[4]?.[b.id] || 0) + (mDOW[4][b.id] || 0);
     if (aThuLong !== bThuLong) return aThuLong - bThuLong;
   }
 
-  // 5) Menor carga en la semana actual
+  // 6) Menor carga en la semana actual
   const aWeek = weekMap.get(a.id) || 0;
   const bWeek = weekMap.get(b.id) || 0;
   if (aWeek !== bWeek) return aWeek - bWeek;
 
-  // 6) Desempate estable por id
+  // 7) Desempate estable por id
   return a.id.localeCompare(b.id);
 }
 
@@ -679,19 +661,18 @@ function isEligible(
 // SUPPORT / HELPERS
 // ======================
 
-function buildHistory(doctors: Doctor[], histAssignments: GuardAssignment[]) {
+function buildHistory(
+  doctors: Doctor[],
+  histAssignments: GuardAssignment[],
+  currentYear: number
+) {
   const totalsByType: Record<ShiftType, Record<string, number>> = {
     "7h": {},
     "17h": {},
   };
+  // DOW histórico SOLO del año actual (YTD), y como mucho 12 meses (ya lo limita la query)
   const totalsByDOW: Record<DayOfWeek, Record<string, number>> = {
-    0: {},
-    1: {},
-    2: {},
-    3: {},
-    4: {},
-    5: {},
-    6: {},
+    0: {}, 1: {}, 2: {}, 3: {}, 4: {}, 5: {}, 6: {},
   };
   const assignedDatesByDoctor = new Map<string, Set<string>>();
 
@@ -705,12 +686,18 @@ function buildHistory(doctors: Doctor[], histAssignments: GuardAssignment[]) {
   }
 
   for (const a of histAssignments) {
-    const dow = dowOf(a.date);
+    // Tipos: usamos el histórico de la query (máx 12 meses)
     if (a.shift_type === "7h" || a.shift_type === "17h") {
       totalsByType[a.shift_type as ShiftType][a.doctor_id] =
         (totalsByType[a.shift_type as ShiftType][a.doctor_id] || 0) + 1;
     }
-    totalsByDOW[dow][a.doctor_id] = (totalsByDOW[dow][a.doctor_id] || 0) + 1;
+    // DOW: contar SOLO si pertenece al año actual del mes a generar
+    const y = new Date(a.date + "T00:00:00").getFullYear();
+    if (y === currentYear) {
+      const d = dowOf(a.date) as DayOfWeek;
+      totalsByDOW[d][a.doctor_id] = (totalsByDOW[d][a.doctor_id] || 0) + 1;
+    }
+    // Para consecutivos, mantenemos todas las fechas del histórico de 12m
     assignedDatesByDoctor.get(a.doctor_id)!.add(a.date);
   }
 
@@ -731,14 +718,12 @@ function buildMonthlyQuotas(
   let extra7 = total7 % doctors.length;
   let extra17 = total17 % doctors.length;
 
-  // Reparto de extras favoreciendo a quien menos histórico tenga
+  // Reparto de extras favoreciendo a quien menos histórico tenga (tipo)
   const by7 = [...doctors].sort(
-    (a, b) =>
-      (hist.totalsByType["7h"][a.id] || 0) - (hist.totalsByType["7h"][b.id] || 0)
+    (a, b) => (hist.totalsByType["7h"][a.id] || 0) - (hist.totalsByType["7h"][b.id] || 0)
   );
   const by17 = [...doctors].sort(
-    (a, b) =>
-      (hist.totalsByType["17h"][a.id] || 0) - (hist.totalsByType["17h"][b.id] || 0)
+    (a, b) => (hist.totalsByType["17h"][a.id] || 0) - (hist.totalsByType["17h"][b.id] || 0)
   );
 
   const quotas = new Map<string, { "7h": number; "17h": number }>();
@@ -767,8 +752,7 @@ function toIncompatibilityMap(rows: Incompatibility[]) {
   const map = new Map<string, Set<string>>();
   for (const r of rows) {
     if (!map.has(r.doctor_id)) map.set(r.doctor_id, new Set());
-    if (!map.has(r.incompatible_doctor_id))
-      map.set(r.incompatible_doctor_id, new Set());
+    if (!map.has(r.incompatible_doctor_id)) map.set(r.incompatible_doctor_id, new Set());
     map.get(r.doctor_id)!.add(r.incompatible_doctor_id);
     map.get(r.incompatible_doctor_id)!.add(r.doctor_id);
   }
