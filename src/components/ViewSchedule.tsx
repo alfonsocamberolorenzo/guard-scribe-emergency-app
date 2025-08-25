@@ -253,6 +253,29 @@ export const ViewSchedule = () => {
         description: "The schedule has been approved successfully",
       });
 
+      // Sync with Google Calendar
+      try {
+        const { error: syncError } = await supabase.functions.invoke('sync-google-calendar', {
+          body: { scheduleId }
+        });
+
+        if (syncError) {
+          console.error('Error syncing with Google Calendar:', syncError);
+          toast({
+            title: "Warning",
+            description: "Schedule approved but Google Calendar sync failed",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Calendar Synced",
+            description: "Schedule synchronized with Google Calendar",
+          });
+        }
+      } catch (syncError) {
+        console.error('Error calling sync function:', syncError);
+      }
+
       fetchSchedules();
       if (selectedSchedule) {
         setSelectedSchedule({ ...selectedSchedule, status: 'approved' });
