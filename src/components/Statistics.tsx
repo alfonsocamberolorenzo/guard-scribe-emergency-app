@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Calendar, CalendarIcon } from "lucide-react";
+import { Calendar, CalendarIcon, Eye, EyeOff } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -49,6 +49,7 @@ export function Statistics() {
   const [statistics, setStatistics] = useState<GuardStatistics[]>([]);
   const [loading, setLoading] = useState(false);
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'} | null>(null);
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchDoctors();
@@ -253,6 +254,18 @@ export function Statistics() {
     return sortConfig.direction === 'asc' ? '↑' : '↓';
   };
 
+  const toggleColumnVisibility = (columnGroup: string) => {
+    const newHiddenColumns = new Set(hiddenColumns);
+    if (hiddenColumns.has(columnGroup)) {
+      newHiddenColumns.delete(columnGroup);
+    } else {
+      newHiddenColumns.add(columnGroup);
+    }
+    setHiddenColumns(newHiddenColumns);
+  };
+
+  const isColumnGroupVisible = (columnGroup: string) => !hiddenColumns.has(columnGroup);
+
   return (
     <div className="space-y-6">
       <Card>
@@ -419,7 +432,38 @@ export function Statistics() {
       {statistics.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Guard Assignment Results</CardTitle>
+            <CardTitle className="flex items-center justify-between">
+              Guard Assignment Results
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toggleColumnVisibility('7h')}
+                  className="flex items-center gap-1"
+                >
+                  {isColumnGroupVisible('7h') ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  7h Shifts
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toggleColumnVisibility('17h')}
+                  className="flex items-center gap-1"
+                >
+                  {isColumnGroupVisible('17h') ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  17h Shifts
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toggleColumnVisibility('totals')}
+                  className="flex items-center gap-1"
+                >
+                  {isColumnGroupVisible('totals') ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  Totals
+                </Button>
+              </div>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -427,113 +471,125 @@ export function Statistics() {
                 <TableHeader>
                   <TableRow>
                     <TableHead rowSpan={2} className="border-r">Doctor</TableHead>
-                    <TableHead colSpan={7} className="text-center border-r">7h Shifts</TableHead>
-                    <TableHead colSpan={7} className="text-center border-r">17h Shifts</TableHead>
-                    <TableHead colSpan={3} className="text-center">Totals</TableHead>
+                    {isColumnGroupVisible('7h') && <TableHead colSpan={7} className="text-center border-r">7h Shifts</TableHead>}
+                    {isColumnGroupVisible('17h') && <TableHead colSpan={7} className="text-center border-r">17h Shifts</TableHead>}
+                    {isColumnGroupVisible('totals') && <TableHead colSpan={3} className="text-center">Totals</TableHead>}
                   </TableRow>
                   <TableRow>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_7h_monday')}
-                    >
-                      Mon {getSortIcon('shift_7h_monday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_7h_tuesday')}
-                    >
-                      Tue {getSortIcon('shift_7h_tuesday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_7h_wednesday')}
-                    >
-                      Wed {getSortIcon('shift_7h_wednesday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_7h_thursday')}
-                    >
-                      Thu {getSortIcon('shift_7h_thursday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_7h_friday')}
-                    >
-                      Fri {getSortIcon('shift_7h_friday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_7h_saturday')}
-                    >
-                      Sat {getSortIcon('shift_7h_saturday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs border-r cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_7h_sunday')}
-                    >
-                      Sun {getSortIcon('shift_7h_sunday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_17h_monday')}
-                    >
-                      Mon {getSortIcon('shift_17h_monday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_17h_tuesday')}
-                    >
-                      Tue {getSortIcon('shift_17h_tuesday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_17h_wednesday')}
-                    >
-                      Wed {getSortIcon('shift_17h_wednesday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_17h_thursday')}
-                    >
-                      Thu {getSortIcon('shift_17h_thursday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_17h_friday')}
-                    >
-                      Fri {getSortIcon('shift_17h_friday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_17h_saturday')}
-                    >
-                      Sat {getSortIcon('shift_17h_saturday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs border-r cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('shift_17h_sunday')}
-                    >
-                      Sun {getSortIcon('shift_17h_sunday')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('total_7h')}
-                    >
-                      7h {getSortIcon('total_7h')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('total_17h')}
-                    >
-                      17h {getSortIcon('total_17h')}
-                    </TableHead>
-                    <TableHead 
-                      className="text-xs cursor-pointer hover:bg-muted/50" 
-                      onClick={() => handleSort('total_guards')}
-                    >
-                      Total {getSortIcon('total_guards')}
-                    </TableHead>
+                    {isColumnGroupVisible('7h') && (
+                      <>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_7h_monday')}
+                        >
+                          Mon {getSortIcon('shift_7h_monday')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_7h_tuesday')}
+                        >
+                          Tue {getSortIcon('shift_7h_tuesday')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_7h_wednesday')}
+                        >
+                          Wed {getSortIcon('shift_7h_wednesday')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_7h_thursday')}
+                        >
+                          Thu {getSortIcon('shift_7h_thursday')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_7h_friday')}
+                        >
+                          Fri {getSortIcon('shift_7h_friday')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_7h_saturday')}
+                        >
+                          Sat {getSortIcon('shift_7h_saturday')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs border-r cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_7h_sunday')}
+                        >
+                          Sun {getSortIcon('shift_7h_sunday')}
+                        </TableHead>
+                      </>
+                    )}
+                    {isColumnGroupVisible('17h') && (
+                      <>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_17h_monday')}
+                        >
+                          Mon {getSortIcon('shift_17h_monday')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_17h_tuesday')}
+                        >
+                          Tue {getSortIcon('shift_17h_tuesday')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_17h_wednesday')}
+                        >
+                          Wed {getSortIcon('shift_17h_wednesday')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_17h_thursday')}
+                        >
+                          Thu {getSortIcon('shift_17h_thursday')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_17h_friday')}
+                        >
+                          Fri {getSortIcon('shift_17h_friday')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_17h_saturday')}
+                        >
+                          Sat {getSortIcon('shift_17h_saturday')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs border-r cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('shift_17h_sunday')}
+                        >
+                          Sun {getSortIcon('shift_17h_sunday')}
+                        </TableHead>
+                      </>
+                    )}
+                    {isColumnGroupVisible('totals') && (
+                      <>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('total_7h')}
+                        >
+                          7h {getSortIcon('total_7h')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('total_17h')}
+                        >
+                          17h {getSortIcon('total_17h')}
+                        </TableHead>
+                        <TableHead 
+                          className="text-xs cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleSort('total_guards')}
+                        >
+                          Total {getSortIcon('total_guards')}
+                        </TableHead>
+                      </>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -542,93 +598,120 @@ export function Statistics() {
                       <TableCell className="font-medium border-r">
                         {stat.doctor_alias}
                       </TableCell>
-                      <TableCell 
-                        className="text-center" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_7h_monday, 'shift_7h_monday') }}
-                      >
-                        {stat.shift_7h_monday}
-                      </TableCell>
-                      <TableCell 
-                        className="text-center" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_7h_tuesday, 'shift_7h_tuesday') }}
-                      >
-                        {stat.shift_7h_tuesday}
-                      </TableCell>
-                      <TableCell 
-                        className="text-center" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_7h_wednesday, 'shift_7h_wednesday') }}
-                      >
-                        {stat.shift_7h_wednesday}
-                      </TableCell>
-                      <TableCell 
-                        className="text-center" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_7h_thursday, 'shift_7h_thursday') }}
-                      >
-                        {stat.shift_7h_thursday}
-                      </TableCell>
-                      <TableCell 
-                        className="text-center" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_7h_friday, 'shift_7h_friday') }}
-                      >
-                        {stat.shift_7h_friday}
-                      </TableCell>
-                      <TableCell 
-                        className="text-center" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_7h_saturday, 'shift_7h_saturday') }}
-                      >
-                        {stat.shift_7h_saturday}
-                      </TableCell>
-                      <TableCell 
-                        className="text-center border-r" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_7h_sunday, 'shift_7h_sunday') }}
-                      >
-                        {stat.shift_7h_sunday}
-                      </TableCell>
-                      <TableCell 
-                        className="text-center" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_17h_monday, 'shift_17h_monday') }}
-                      >
-                        {stat.shift_17h_monday}
-                      </TableCell>
-                      <TableCell 
-                        className="text-center" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_17h_tuesday, 'shift_17h_tuesday') }}
-                      >
-                        {stat.shift_17h_tuesday}
-                      </TableCell>
-                      <TableCell 
-                        className="text-center" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_17h_wednesday, 'shift_17h_wednesday') }}
-                      >
-                        {stat.shift_17h_wednesday}
-                      </TableCell>
-                      <TableCell 
-                        className="text-center" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_17h_thursday, 'shift_17h_thursday') }}
-                      >
-                        {stat.shift_17h_thursday}
-                      </TableCell>
-                      <TableCell 
-                        className="text-center" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_17h_friday, 'shift_17h_friday') }}
-                      >
-                        {stat.shift_17h_friday}
-                      </TableCell>
-                      <TableCell 
-                        className="text-center" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_17h_saturday, 'shift_17h_saturday') }}
-                      >
-                        {stat.shift_17h_saturday}
-                      </TableCell>
-                      <TableCell 
-                        className="text-center border-r" 
-                        style={{ backgroundColor: getColorForValue(stat.shift_17h_sunday, 'shift_17h_sunday') }}
-                      >
-                        {stat.shift_17h_sunday}
-                      </TableCell>
-                      <TableCell className="text-center font-medium">{stat.total_7h}</TableCell>
-                      <TableCell className="text-center font-medium">{stat.total_17h}</TableCell>
-                      <TableCell className="text-center font-bold">{stat.total_guards}</TableCell>
+                      {isColumnGroupVisible('7h') && (
+                        <>
+                          <TableCell 
+                            className="text-center" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_7h_monday, 'shift_7h_monday') }}
+                          >
+                            {stat.shift_7h_monday}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_7h_tuesday, 'shift_7h_tuesday') }}
+                          >
+                            {stat.shift_7h_tuesday}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_7h_wednesday, 'shift_7h_wednesday') }}
+                          >
+                            {stat.shift_7h_wednesday}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_7h_thursday, 'shift_7h_thursday') }}
+                          >
+                            {stat.shift_7h_thursday}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_7h_friday, 'shift_7h_friday') }}
+                          >
+                            {stat.shift_7h_friday}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_7h_saturday, 'shift_7h_saturday') }}
+                          >
+                            {stat.shift_7h_saturday}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center border-r" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_7h_sunday, 'shift_7h_sunday') }}
+                          >
+                            {stat.shift_7h_sunday}
+                          </TableCell>
+                        </>
+                      )}
+                      {isColumnGroupVisible('17h') && (
+                        <>
+                          <TableCell 
+                            className="text-center" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_17h_monday, 'shift_17h_monday') }}
+                          >
+                            {stat.shift_17h_monday}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_17h_tuesday, 'shift_17h_tuesday') }}
+                          >
+                            {stat.shift_17h_tuesday}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_17h_wednesday, 'shift_17h_wednesday') }}
+                          >
+                            {stat.shift_17h_wednesday}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_17h_thursday, 'shift_17h_thursday') }}
+                          >
+                            {stat.shift_17h_thursday}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_17h_friday, 'shift_17h_friday') }}
+                          >
+                            {stat.shift_17h_friday}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_17h_saturday, 'shift_17h_saturday') }}
+                          >
+                            {stat.shift_17h_saturday}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center border-r" 
+                            style={{ backgroundColor: getColorForValue(stat.shift_17h_sunday, 'shift_17h_sunday') }}
+                          >
+                            {stat.shift_17h_sunday}
+                          </TableCell>
+                        </>
+                      )}
+                      {isColumnGroupVisible('totals') && (
+                        <>
+                          <TableCell 
+                            className="text-center font-medium" 
+                            style={{ backgroundColor: getColorForValue(stat.total_7h, 'total_7h') }}
+                          >
+                            {stat.total_7h}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center font-medium" 
+                            style={{ backgroundColor: getColorForValue(stat.total_17h, 'total_17h') }}
+                          >
+                            {stat.total_17h}
+                          </TableCell>
+                          <TableCell 
+                            className="text-center font-bold" 
+                            style={{ backgroundColor: getColorForValue(stat.total_guards, 'total_guards') }}
+                          >
+                            {stat.total_guards}
+                          </TableCell>
+                        </>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
