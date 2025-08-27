@@ -485,6 +485,61 @@ export function Statistics() {
                 Last 12 Months
               </Button>
             </div>
+            
+            {/* Quarter Shortcuts */}
+            <div className="space-y-2">
+              <Label className="text-sm">Current Year Quarters</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    setStartDate(new Date(year, 0, 1)); // January 1
+                    setEndDate(new Date(year, 2, 31)); // March 31
+                  }}
+                >
+                  Q1 (Jan-Mar)
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    setStartDate(new Date(year, 3, 1)); // April 1
+                    setEndDate(new Date(year, 5, 30)); // June 30
+                  }}
+                >
+                  Q2 (Apr-Jun)
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    setStartDate(new Date(year, 6, 1)); // July 1
+                    setEndDate(new Date(year, 8, 30)); // September 30
+                  }}
+                >
+                  Q3 (Jul-Sep)
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    setStartDate(new Date(year, 9, 1)); // October 1
+                    setEndDate(new Date(year, 11, 31)); // December 31
+                  }}
+                >
+                  Q4 (Oct-Dec)
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Doctor Selection */}
