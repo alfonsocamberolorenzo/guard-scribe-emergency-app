@@ -215,7 +215,7 @@ export const ScheduleGenerator = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Generate Guard Schedule v24
+            Generate Guard Schedule
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -332,7 +332,7 @@ function generateAssignments(
     { type: "17h", position: 2 }, // 17h (2)
   ];
 
-  // Históricos (máx 12 meses) para equilibrio largo + set de fechas previas
+  // Históricos (máx 12 meses). DOW solo del año actual (monthCtx.year)
   const history = buildHistory(doctors, guardAssignments, monthCtx.year);
 
   // Cuotas mensuales por tipo (respetando límites)
@@ -343,6 +343,9 @@ function generateAssignments(
       (quotas.get(d.id)?.["7h"] || 0) + (quotas.get(d.id)?.["17h"] || 0),
     ])
   );
+
+  // Cuotas de JUEVES del mes (reparto equitativo)
+  const thuQuota = buildThursdayMonthlyQuota(doctors, guardDays, history);
 
   // Mapa de incompatibilidades simétrico
   const incompatMap = toIncompatibilityMap(incompatibilities);
@@ -363,7 +366,7 @@ function generateAssignments(
     6: {},
   };
   const assignedWeeksByDoctor = new Map<string, Set<number>>();
-  // Partimos del histórico para “consecutivos” en frontera de mes
+  // Para consecutivos usamos histórico + lo que vamos añadiendo
   const assignedDatesByDoctor = new Map<string, Set<string>>(
     Array.from(history.assignedDatesByDoctor.entries()).map(([k, v]) => [
       k,
@@ -416,8 +419,13 @@ function generateAssignments(
           .filter((r) => r.date === iso)
           .map((r) => r.doctor_id);
 
-        // A) Intento con 1/semana (hard). Permitimos exceder cuota para no romper 1/semana.
-        let eligible = doctors.filter((doc) =>
+        const isThu = dow === 4;
+
+        // Fases de elegibilidad (jueves aplica cuota mensual de jueves)
+        let eligible: Doctor[] = [];
+
+        // A) Cap semanal=1, cuota jueves estricta (permitimos exceder cuota de tipo si hace falta)
+        eligible = doctors.filter((doc) =>
           isEligible(
             doc,
             iso,
@@ -432,11 +440,18 @@ function generateAssignments(
             weekNumber,
             assignedWeeksByDoctor,
             isWeekday(dow) && iso === day1 ? prevAssignmentsDay : undefined,
-            { weekCap: 1, weekCountByDoctor: weekMap, allowExceedQuota: true }
+            {
+              weekCap: 1,
+              weekCountByDoctor: weekMap,
+              allowExceedQuota: true,
+              enforceThuCap: isThu,
+              thuQuota,
+              monthDOWCount,
+            }
           )
         );
 
-        // B) Si no hay candidatos, 2/semana (soft)
+        // B) Si no hay, cap semanal=1, sin cuota jueves
         if (eligible.length === 0) {
           eligible = doctors.filter((doc) =>
             isEligible(
@@ -453,12 +468,19 @@ function generateAssignments(
               weekNumber,
               assignedWeeksByDoctor,
               isWeekday(dow) && iso === day1 ? prevAssignmentsDay : undefined,
-              { weekCap: 2, weekCountByDoctor: weekMap, allowExceedQuota: true }
+              {
+                weekCap: 1,
+                weekCountByDoctor: weekMap,
+                allowExceedQuota: true,
+                enforceThuCap: false,
+                thuQuota,
+                monthDOWCount,
+              }
             )
           );
         }
 
-        // C) Último recurso: sin cap semanal, manteniendo hard rules
+        // C) Si no hay, cap semanal=2, cuota jueves estricta
         if (eligible.length === 0) {
           eligible = doctors.filter((doc) =>
             isEligible(
@@ -472,17 +494,105 @@ function generateAssignments(
               todayAssigned,
               incompatMap,
               alreadyToday,
+              weekNumber,
+              assignedWeeksByDoctor,
+              isWeekday(dow) && iso === day1 ? prevAssignmentsDay : undefined,
+              {
+                weekCap: 2,
+                weekCountByDoctor: weekMap,
+                allowExceedQuota: true,
+                enforceThuCap: isThu,
+                thuQuota,
+                monthDOWCount,
+              }
+            )
+          );
+        }
+
+        // D) Si no hay, cap semanal=2, sin cuota jueves
+        if (eligible.length === 0) {
+          eligible = doctors.filter((doc) =>
+            isEligible(
+              doc,
+              iso,
+              dow,
+              shift.type,
+              quotas,
+              monthTypeCount,
+              assignedDatesByDoctor,
+              todayAssigned,
+              incompatMap,
+              alreadyToday,
+              weekNumber,
+              assignedWeeksByDoctor,
+              isWeekday(dow) && iso === day1 ? prevAssignmentsDay : undefined,
+              {
+                weekCap: 2,
+                weekCountByDoctor: weekMap,
+                allowExceedQuota: true,
+                enforceThuCap: false,
+                thuQuota,
+                monthDOWCount,
+              }
+            )
+          );
+        }
+
+        // E) Último recurso: sin cap semanal, con/quita cuota jueves según necesidad
+        if (eligible.length === 0) {
+          eligible = doctors.filter((doc) =>
+            isEligible(
+              doc,
+              iso,
+              dow,
+              shift.type,
+              quotas,
+              monthTypeCount,
+              assignedDatesByDoctor,
+              todayAssigned,
+              incompatMap,
+              alreadyAssignedToday,
               undefined,
               undefined,
               isWeekday(dow) && iso === day1 ? prevAssignmentsDay : undefined,
-              { allowExceedQuota: true }
+              {
+                allowExceedQuota: true,
+                enforceThuCap: isThu,
+                thuQuota,
+                monthDOWCount,
+              }
+            )
+          );
+        }
+        if (eligible.length === 0) {
+          eligible = doctors.filter((doc) =>
+            isEligible(
+              doc,
+              iso,
+              dow,
+              shift.type,
+              quotas,
+              monthTypeCount,
+              assignedDatesByDoctor,
+              todayAssigned,
+              incompatMap,
+              alreadyAssignedToday,
+              undefined,
+              undefined,
+              isWeekday(dow) && iso === day1 ? prevAssignmentsDay : undefined,
+              {
+                allowExceedQuota: true,
+                enforceThuCap: false,
+                thuQuota,
+                monthDOWCount,
+              }
             )
           );
         }
 
         if (eligible.length === 0) continue;
 
-        // Orden: déficit de tipo y total, DOW (con énfasis jueves), y menor carga semanal
+        // Orden: déficit de jueves (mes), luego jueves YTD; después tipo/total/DOW y carga semanal.
         eligible.sort((a, b) =>
           compareCandidates(
             a,
@@ -497,11 +607,12 @@ function generateAssignments(
             monthDOWCount,
             history,
             weekMap,
-            weekNumber
+            weekNumber,
+            thuQuota
           )
         );
 
-        const chosen = eligible[0];
+        const chosen = eligible[0]; // determinista
 
         // Commit (shift_position correcto)
         schedule.push({
@@ -509,7 +620,7 @@ function generateAssignments(
           doctor_id: chosen.id,
           date: iso,
           shift_type: shift.type,
-          shift_position: shift.position, // ✅ 7h→1, 17h→1/2
+          shift_position: shift.position, // 7h→1, 17h→1/2
           is_original: true,
         });
 
@@ -530,7 +641,7 @@ function generateAssignments(
   return schedule;
 }
 
-// ---------- Comparador de candidatos (justicia máxima) ----------
+// ---------- Comparador de candidatos (prioriza justicia de jueves) ----------
 function compareCandidates(
   a: Doctor,
   b: Doctor,
@@ -544,8 +655,21 @@ function compareCandidates(
   mDOW: Record<DayOfWeek, Record<string, number>>,
   hist: ReturnType<typeof buildHistory>,
   weekMap: Map<string, number>,
-  weekNumber: number
+  weekNumber: number,
+  thuQuota: Map<string, number>
 ) {
+  // 0) SI ES JUEVES: déficit mensual de jueves primero
+  if (dow === 4) {
+    const aThuDefMonth = (thuQuota.get(a.id) || 0) - (mDOW[4][a.id] || 0);
+    const bThuDefMonth = (thuQuota.get(b.id) || 0) - (mDOW[4][b.id] || 0);
+    if (aThuDefMonth !== bThuDefMonth) return bThuDefMonth - aThuDefMonth;
+
+    // Empate: favorecer al que menos jueves lleva YTD (año actual)
+    const aThuYTD = hist.totalsByDOW[4]?.[a.id] ?? 0;
+    const bThuYTD = hist.totalsByDOW[4]?.[b.id] ?? 0;
+    if (aThuYTD !== bThuYTD) return aThuYTD - bThuYTD;
+  }
+
   const qa = quotas.get(a.id)!;
   const qb = quotas.get(b.id)!;
 
@@ -576,23 +700,12 @@ function compareCandidates(
   const bDowLong = (hist.totalsByDOW[dow]?.[b.id] || 0) + (mDOW[dow][b.id] || 0);
   if (aDowLong !== bDowLong) return aDowLong - bDowLong;
 
-  // 5) Énfasis jueves
-  if (dow === 4) {
-    const aThuShort = mDOW[4][a.id] || 0;
-    const bThuShort = mDOW[4][b.id] || 0;
-    if (aThuShort !== bThuShort) return aThuShort - bThuShort;
-
-    const aThuLong = (hist.totalsByDOW[4]?.[a.id] || 0) + (mDOW[4][a.id] || 0);
-    const bThuLong = (hist.totalsByDOW[4]?.[b.id] || 0) + (mDOW[4][b.id] || 0);
-    if (aThuLong !== bThuLong) return aThuLong - bThuLong;
-  }
-
-  // 6) Menor carga en la semana actual
+  // 5) Menor carga en la semana actual
   const aWeek = weekMap.get(a.id) || 0;
   const bWeek = weekMap.get(b.id) || 0;
   if (aWeek !== bWeek) return aWeek - bWeek;
 
-  // 7) Desempate estable por id
+  // 6) Desempate estable por id
   return a.id.localeCompare(b.id);
 }
 
@@ -615,6 +728,9 @@ function isEligible(
     weekCap?: number;                      // máximo por semana
     weekCountByDoctor?: Map<string, number>;
     allowExceedQuota?: boolean;
+    enforceThuCap?: boolean;
+    thuQuota?: Map<string, number>;
+    monthDOWCount?: Record<DayOfWeek, Record<string, number>>;
   }
 ): boolean {
   // no dos turnos el mismo día
@@ -646,7 +762,14 @@ function isEligible(
     if (used >= opts.weekCap) return false;
   }
 
-  // cuotas / límites
+  // En jueves, respetar cuota mensual de jueves si se solicita
+  if (opts?.enforceThuCap && opts.thuQuota && opts.monthDOWCount && dow === 4) {
+    const quota = opts.thuQuota.get(doc.id) || 0;
+    const currentThu = opts.monthDOWCount[4][doc.id] || 0;
+    if (currentThu >= quota) return false;
+  }
+
+  // cuotas / límites por tipo
   const q = quotas.get(doc.id)!;
   const current = monthTypeCount[type][doc.id] || 0;
   if (!opts?.allowExceedQuota && current >= q[type]) return false;
@@ -746,6 +869,31 @@ function buildMonthlyQuotas(
   }
 
   return quotas;
+}
+
+// Cuotas mensuales de JUEVES (número de jueves del mes * 3 turnos), extras a quien menos jueves YTD lleva
+function buildThursdayMonthlyQuota(
+  doctors: Doctor[],
+  guardDays: GuardDay[],
+  hist: ReturnType<typeof buildHistory>
+) {
+  const thursdays = guardDays.filter(d => d.is_guard_day && dowOf(d.date) === 4).length;
+  const totalThuSlots = thursdays * 3; // 7h + 17h(1) + 17h(2)
+  const base = Math.floor(totalThuSlots / doctors.length);
+  let extra = totalThuSlots % doctors.length;
+
+  // Ordenar por menos jueves YTD (año actual)
+  const byThuYTD = [...doctors].sort(
+    (a, b) => (hist.totalsByDOW[4]?.[a.id] || 0) - (hist.totalsByDOW[4]?.[b.id] || 0)
+  );
+
+  const quota = new Map<string, number>();
+  for (const d of doctors) quota.set(d.id, base);
+  for (let i = 0; i < extra; i++) {
+    const id = byThuYTD[i % byThuYTD.length].id;
+    quota.set(id, (quota.get(id) || 0) + 1);
+  }
+  return quota;
 }
 
 function toIncompatibilityMap(rows: Incompatibility[]) {
