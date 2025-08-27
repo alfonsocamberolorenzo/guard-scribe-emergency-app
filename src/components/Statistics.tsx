@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface Doctor {
   id: string;
@@ -42,6 +43,7 @@ interface GuardStatistics {
 }
 
 export function Statistics() {
+  const { t } = useTranslation();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctors, setSelectedDoctors] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<Date>();
@@ -274,12 +276,12 @@ export function Statistics() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Guard Assignment Statistics</CardTitle>
+          <CardTitle>{t.statistics.title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Column Visibility Controls */}
           <div className="space-y-4">
-            <Label>Column Visibility</Label>
+            <Label>{t.statistics.columnVisibility}</Label>
             
             {/* Group Controls */}
             <div className="flex flex-wrap gap-2 border-b pb-4">
@@ -290,7 +292,7 @@ export function Statistics() {
                 className="flex items-center gap-1"
               >
                 {isColumnGroupVisible('7h') ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                All 7h Shifts
+                {t.statistics.all7hShifts}
               </Button>
               <Button
                 variant="outline"
@@ -299,7 +301,7 @@ export function Statistics() {
                 className="flex items-center gap-1"
               >
                 {isColumnGroupVisible('17h') ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                All 17h Shifts
+                {t.statistics.all17hShifts}
               </Button>
               <Button
                 variant="outline"
@@ -308,13 +310,13 @@ export function Statistics() {
                 className="flex items-center gap-1"
               >
                 {isColumnGroupVisible('totals') ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                All Totals
+                {t.statistics.allTotals}
               </Button>
             </div>
 
             {/* Individual 7h Column Controls */}
             <div>
-              <div className="text-sm font-medium mb-2">7h Shift Days:</div>
+              <div className="text-sm font-medium mb-2">{t.statistics.shiftDays7h}</div>
               <div className="flex flex-wrap gap-1">
                 {dayColumns.map((day) => (
                   <Button
@@ -325,7 +327,7 @@ export function Statistics() {
                     className="flex items-center gap-1 text-xs"
                   >
                     {isIndividualColumnVisible(`shift_7h_${day}`) ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-                    {day.charAt(0).toUpperCase() + day.slice(1, 3)}
+                    {t.doctors[day as keyof typeof t.doctors].slice(0, 3)}
                   </Button>
                 ))}
               </div>
@@ -333,7 +335,7 @@ export function Statistics() {
 
             {/* Individual 17h Column Controls */}
             <div>
-              <div className="text-sm font-medium mb-2">17h Shift Days:</div>
+              <div className="text-sm font-medium mb-2">{t.statistics.shiftDays17h}</div>
               <div className="flex flex-wrap gap-1">
                 {dayColumns.map((day) => (
                   <Button
@@ -344,7 +346,7 @@ export function Statistics() {
                     className="flex items-center gap-1 text-xs"
                   >
                     {isIndividualColumnVisible(`shift_17h_${day}`) ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-                    {day.charAt(0).toUpperCase() + day.slice(1, 3)}
+                    {t.doctors[day as keyof typeof t.doctors].slice(0, 3)}
                   </Button>
                 ))}
               </div>
@@ -352,7 +354,7 @@ export function Statistics() {
 
             {/* Individual Total Column Controls */}
             <div>
-              <div className="text-sm font-medium mb-2">Total Columns:</div>
+              <div className="text-sm font-medium mb-2">{t.statistics.totalColumns}</div>
               <div className="flex flex-wrap gap-1">
                 <Button
                   variant="outline"
@@ -361,7 +363,7 @@ export function Statistics() {
                   className="flex items-center gap-1 text-xs"
                 >
                   {isIndividualColumnVisible('total_7h') ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-                  7h Total
+                  {t.statistics.total7h}
                 </Button>
                 <Button
                   variant="outline"
@@ -370,7 +372,7 @@ export function Statistics() {
                   className="flex items-center gap-1 text-xs"
                 >
                   {isIndividualColumnVisible('total_17h') ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-                  17h Total
+                  {t.statistics.total17h}
                 </Button>
                 <Button
                   variant="outline"
@@ -379,7 +381,7 @@ export function Statistics() {
                   className="flex items-center gap-1 text-xs"
                 >
                   {isIndividualColumnVisible('total_guards') ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-                  Grand Total
+                  {t.statistics.grandTotal}
                 </Button>
               </div>
             </div>
@@ -387,7 +389,7 @@ export function Statistics() {
           {/* Date Range Filter */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Start Date</Label>
+              <Label>{t.statistics.startDate}</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -398,7 +400,7 @@ export function Statistics() {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "PPP") : "Pick a start date"}
+                    {startDate ? format(startDate, "PPP") : t.statistics.pickStartDate}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -414,7 +416,7 @@ export function Statistics() {
             </div>
 
             <div className="space-y-2">
-              <Label>End Date</Label>
+              <Label>{t.statistics.endDate}</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -425,7 +427,7 @@ export function Statistics() {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, "PPP") : "Pick an end date"}
+                    {endDate ? format(endDate, "PPP") : t.statistics.pickEndDate}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -443,7 +445,7 @@ export function Statistics() {
 
           {/* Date Range Shortcuts */}
           <div className="space-y-2">
-            <Label>Quick Date Ranges</Label>
+            <Label>{t.statistics.quickDateRanges}</Label>
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
@@ -456,7 +458,7 @@ export function Statistics() {
                   setEndDate(lastDay);
                 }}
               >
-                Current Month
+                {t.statistics.currentMonth}
               </Button>
               <Button
                 variant="outline"
@@ -469,7 +471,7 @@ export function Statistics() {
                   setEndDate(lastDay);
                 }}
               >
-                Current Year
+                {t.statistics.currentYear}
               </Button>
               <Button
                 variant="outline"
@@ -482,13 +484,13 @@ export function Statistics() {
                   setEndDate(lastMonth);
                 }}
               >
-                Last 12 Months
+                {t.statistics.last12Months}
               </Button>
             </div>
             
             {/* Quarter Shortcuts */}
             <div className="space-y-2">
-              <Label className="text-sm">Current Year Quarters</Label>
+              <Label className="text-sm">{t.statistics.currentYearQuarters}</Label>
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
@@ -500,7 +502,7 @@ export function Statistics() {
                     setEndDate(new Date(year, 2, 31)); // March 31
                   }}
                 >
-                  Q1 (Jan-Mar)
+                  {t.statistics.q1}
                 </Button>
                 <Button
                   variant="outline"
@@ -512,7 +514,7 @@ export function Statistics() {
                     setEndDate(new Date(year, 5, 30)); // June 30
                   }}
                 >
-                  Q2 (Apr-Jun)
+                  {t.statistics.q2}
                 </Button>
                 <Button
                   variant="outline"
@@ -524,7 +526,7 @@ export function Statistics() {
                     setEndDate(new Date(year, 8, 30)); // September 30
                   }}
                 >
-                  Q3 (Jul-Sep)
+                  {t.statistics.q3}
                 </Button>
                 <Button
                   variant="outline"
@@ -536,7 +538,7 @@ export function Statistics() {
                     setEndDate(new Date(year, 11, 31)); // December 31
                   }}
                 >
-                  Q4 (Oct-Dec)
+                  {t.statistics.q4}
                 </Button>
               </div>
             </div>
@@ -545,13 +547,13 @@ export function Statistics() {
           {/* Doctor Selection */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label>Doctor Selection</Label>
+              <Label>{t.statistics.doctorSelection}</Label>
               <div className="space-x-2">
                 <Button variant="outline" size="sm" onClick={selectAllDoctors}>
-                  Select All
+                  {t.statistics.selectAll}
                 </Button>
                 <Button variant="outline" size="sm" onClick={deselectAllDoctors}>
-                  Deselect All
+                  {t.statistics.deselectAll}
                 </Button>
               </div>
             </div>
@@ -583,12 +585,12 @@ export function Statistics() {
             disabled={!startDate || !endDate || selectedDoctors.length === 0 || loading}
             className="w-full"
           >
-            {loading ? "Updating Statistics..." : "Refresh Statistics"}
+            {loading ? t.statistics.loading : t.statistics.generateStatistics}
           </Button>
           
           {startDate && endDate && selectedDoctors.length > 0 && (
             <p className="text-sm text-muted-foreground text-center">
-              Statistics update automatically when schedules are modified
+              {t.statistics.noDataAvailable}
             </p>
           )}
         </CardContent>
@@ -598,20 +600,20 @@ export function Statistics() {
       {statistics.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Guard Assignment Results</CardTitle>
+            <CardTitle>{t.statistics.title}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead rowSpan={2} className="border-r">Doctor</TableHead>
+                    <TableHead rowSpan={2} className="border-r">{t.statistics.doctorName}</TableHead>
                     {(isColumnGroupVisible('7h') || dayColumns.some(day => isIndividualColumnVisible(`shift_7h_${day}`))) && 
-                      <TableHead colSpan={dayColumns.filter(day => isIndividualColumnVisible(`shift_7h_${day}`)).length} className="text-center border-r">7h Shifts</TableHead>}
-                    {(isColumnGroupVisible('17h') || dayColumns.some(day => isIndividualColumnVisible(`shift_17h_${day}`))) && 
-                      <TableHead colSpan={dayColumns.filter(day => isIndividualColumnVisible(`shift_17h_${day}`)).length} className="text-center border-r">17h Shifts</TableHead>}
+                       <TableHead colSpan={dayColumns.filter(day => isIndividualColumnVisible(`shift_7h_${day}`)).length} className="text-center border-r">{t.viewSchedule.shift7h}</TableHead>}
+                     {(isColumnGroupVisible('17h') || dayColumns.some(day => isIndividualColumnVisible(`shift_17h_${day}`))) && 
+                       <TableHead colSpan={dayColumns.filter(day => isIndividualColumnVisible(`shift_17h_${day}`)).length} className="text-center border-r">{t.viewSchedule.shift17h}</TableHead>}
                     {(isColumnGroupVisible('totals') || ['total_7h', 'total_17h', 'total_guards'].some(col => isIndividualColumnVisible(col))) && 
-                      <TableHead colSpan={['total_7h', 'total_17h', 'total_guards'].filter(col => isIndividualColumnVisible(col)).length} className="text-center">Totals</TableHead>}
+                      <TableHead colSpan={['total_7h', 'total_17h', 'total_guards'].filter(col => isIndividualColumnVisible(col)).length} className="text-center">{t.statistics.allTotals}</TableHead>}
                   </TableRow>
                   <TableRow>
                     {(isColumnGroupVisible('7h') || dayColumns.some(day => isIndividualColumnVisible(`shift_7h_${day}`))) && (

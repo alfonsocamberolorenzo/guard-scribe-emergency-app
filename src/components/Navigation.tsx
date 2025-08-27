@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Calendar, CalendarCheck, FileText, Settings, BarChart3, LogOut, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "@/hooks/useTranslation";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 interface NavigationProps {
   currentView: string;
@@ -10,20 +12,21 @@ interface NavigationProps {
 
 export function Navigation({ currentView, onViewChange }: NavigationProps) {
   const { profile, isEditor, signOut } = useAuth();
+  const { t } = useTranslation();
   
   const editorMenuItems = [
-    { id: 'doctors', label: 'Doctors', icon: Users },
-    { id: 'calendar-config', label: 'Calendar Config', icon: Calendar },
-    { id: 'schedule-generator', label: 'Generate Schedule', icon: CalendarCheck },
-    { id: 'view-schedule', label: 'View Schedule', icon: FileText },
-    { id: 'leave-requests', label: 'Leave Requests', icon: Settings },
-    { id: 'statistics', label: 'Statistics', icon: BarChart3 },
-    { id: 'user-management', label: 'User Management', icon: User },
+    { id: 'doctors', label: t.navigation.doctorManagement, icon: Users },
+    { id: 'calendar-config', label: t.navigation.calendarConfig, icon: Calendar },
+    { id: 'schedule-generator', label: t.navigation.scheduleGeneration, icon: CalendarCheck },
+    { id: 'view-schedule', label: t.navigation.viewSchedule, icon: FileText },
+    { id: 'leave-requests', label: t.navigation.leaveRequests, icon: Settings },
+    { id: 'statistics', label: t.navigation.statistics, icon: BarChart3 },
+    { id: 'user-management', label: t.navigation.userManagement, icon: User },
   ];
 
   const viewerMenuItems = [
-    { id: 'view-schedule', label: 'View Schedule', icon: FileText },
-    { id: 'statistics', label: 'Statistics', icon: BarChart3 },
+    { id: 'view-schedule', label: t.navigation.viewSchedule, icon: FileText },
+    { id: 'statistics', label: t.navigation.statistics, icon: BarChart3 },
   ];
 
   const menuItems = isEditor ? editorMenuItems : viewerMenuItems;
@@ -34,6 +37,7 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">Medical Guard Management</h1>
           <div className="flex items-center gap-3">
+            <LanguageSelector />
             <div className="flex items-center gap-2">
               <User className="h-4 w-4" />
               <span className="text-sm">{profile?.full_name || 'User'}</span>
@@ -48,7 +52,7 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
               className="flex items-center gap-2"
             >
               <LogOut className="h-4 w-4" />
-              Sign Out
+              {t.navigation.logout}
             </Button>
           </div>
         </div>
