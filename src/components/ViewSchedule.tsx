@@ -200,11 +200,11 @@ export const ViewSchedule = () => {
 
       const updateData: any = {
         doctor_id: selectedDoctorId,
-        is_original: false
+        is_original: selectedSchedule?.status === 'draft' ? true : false,
       };
 
-      // If this is the first change, store the original doctor
-      if (assignment.is_original) {
+      // Store original doctor only once
+      if (!assignment.original_doctor_id) {
         updateData.original_doctor_id = assignment.doctor_id;
       }
 
