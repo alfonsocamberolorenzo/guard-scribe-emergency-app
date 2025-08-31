@@ -63,7 +63,7 @@ export const ViewSchedule = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
-  const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
+  const [viewMode, setViewMode] = useState<'calendar' | 'table'>('table');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -358,7 +358,7 @@ export const ViewSchedule = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {doctors
-                    .sort((a, b) => a.full_name.localeCompare(b.full_name))
+                    .sort((a, b) => a.alias.localeCompare(b.alias))
                     .map((doctor) => (
                       <SelectItem key={doctor.id} value={doctor.id}>
                         {doctor.alias}
