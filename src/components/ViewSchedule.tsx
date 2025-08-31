@@ -357,11 +357,13 @@ export const ViewSchedule = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {doctors.map((doctor) => (
-                    <SelectItem key={doctor.id} value={doctor.id}>
-                      {doctor.alias}
-                    </SelectItem>
-                  ))}
+                  {doctors
+                    .sort((a, b) => a.full_name.localeCompare(b.full_name))
+                    .map((doctor) => (
+                      <SelectItem key={doctor.id} value={doctor.id}>
+                        {doctor.alias}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <Button 
