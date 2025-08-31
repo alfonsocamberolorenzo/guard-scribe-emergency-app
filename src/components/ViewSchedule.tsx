@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CalendarDays, Eye, Users, Clock, Edit, Save, X, Table } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { format, parseISO, getDaysInMonth, getDay } from "date-fns";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface Schedule {
   id: string;
@@ -54,6 +55,7 @@ const MONTHS = [
 ];
 
 export const ViewSchedule = () => {
+  const { t } = useTranslation();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -84,8 +86,8 @@ export const ViewSchedule = () => {
     } catch (error) {
       console.error('Error fetching schedules:', error);
       toast({
-        title: "Error",
-        description: "Failed to load schedules",
+        title: t.viewSchedule.error,
+        description: t.viewSchedule.errorLoadingSchedules,
         variant: "destructive",
       });
     } finally {
@@ -138,8 +140,8 @@ export const ViewSchedule = () => {
     } catch (error) {
       console.error('Error fetching assignments:', error);
       toast({
-        title: "Error",
-        description: "Failed to load schedule assignments",
+        title: t.viewSchedule.error,
+        description: t.viewSchedule.errorLoadingAssignments,
         variant: "destructive",
       });
     }
@@ -216,8 +218,8 @@ export const ViewSchedule = () => {
       if (error) throw error;
 
       toast({
-        title: "Assignment Updated",
-        description: "The guard assignment has been updated successfully",
+        title: t.viewSchedule.assignmentUpdated,
+        description: t.viewSchedule.assignmentUpdatedDesc,
       });
 
       // Refresh assignments
@@ -230,8 +232,8 @@ export const ViewSchedule = () => {
     } catch (error) {
       console.error('Error updating assignment:', error);
       toast({
-        title: "Error",
-        description: "Failed to update assignment",
+        title: t.viewSchedule.error,
+        description: t.viewSchedule.errorUpdatingAssignment,
         variant: "destructive",
       });
     }
@@ -250,8 +252,8 @@ export const ViewSchedule = () => {
       if (error) throw error;
 
       toast({
-        title: "Schedule Approved",
-        description: "The schedule has been approved successfully",
+        title: t.viewSchedule.scheduleApproved,
+        description: t.viewSchedule.scheduleApprovedDesc,
       });
 
       // Sync with Google Calendar
@@ -263,14 +265,14 @@ export const ViewSchedule = () => {
         if (syncError) {
           console.error('Error syncing with Google Calendar:', syncError);
           toast({
-            title: "Warning",
-            description: "Schedule approved but Google Calendar sync failed",
+            title: t.viewSchedule.warning,
+            description: t.viewSchedule.scheduleApprovedSyncFailed,
             variant: "destructive",
           });
         } else {
           toast({
-            title: "Calendar Synced",
-            description: "Schedule synchronized with Google Calendar",
+            title: t.viewSchedule.calendarSynced,
+            description: t.viewSchedule.calendarSyncedDesc,
           });
         }
       } catch (syncError) {
@@ -284,8 +286,8 @@ export const ViewSchedule = () => {
     } catch (error) {
       console.error('Error approving schedule:', error);
       toast({
-        title: "Error",
-        description: "Failed to approve schedule",
+        title: t.viewSchedule.error,
+        description: t.viewSchedule.errorApprovingSchedule,
         variant: "destructive",
       });
     }
@@ -386,8 +388,8 @@ export const ViewSchedule = () => {
           ) : (
             <div className="flex items-center gap-1">
               <span>
-                {assignment.doctor.alias}
-                {!assignment.is_original && <span className="text-xs text-orange-600">*</span>}
+                 {assignment.doctor.alias}
+                 {!assignment.is_original && <span className="text-xs text-orange-600">*</span>}
               </span>
               <Button 
                 size="sm" 
@@ -399,23 +401,23 @@ export const ViewSchedule = () => {
               </Button>
             </div>
           )}
-          {leaveStatus === 'approved' && <span className="block text-xs text-red-600">(Leave)</span>}
-          {leaveStatus === 'pending' && <span className="block text-xs text-yellow-600">(Pending)</span>}
+          {leaveStatus === 'approved' && <span className="block text-xs text-red-600">{t.viewSchedule.leave}</span>}
+          {leaveStatus === 'pending' && <span className="block text-xs text-yellow-600">{t.viewSchedule.pending}</span>}
         </div>
       );
     };
 
     return (
       <div className="space-y-4">
-        <h4 className="font-medium">Monthly Schedule Table</h4>
+        <h4 className="font-medium">{t.viewSchedule.monthlyScheduleTable}</h4>
         <div className="overflow-auto max-h-96 border rounded-lg">
           <table className="w-full text-sm">
             <thead className="bg-muted sticky top-0">
               <tr>
-                <th className="p-2 text-left border-r font-medium">Day</th>
-                <th className="p-2 text-center border-r font-medium">7h Shift</th>
-                <th className="p-2 text-center border-r font-medium">17h Shift (1)</th>
-                <th className="p-2 text-center font-medium">17h Shift (2)</th>
+                <th className="p-2 text-left border-r font-medium">{t.viewSchedule.day}</th>
+                <th className="p-2 text-center border-r font-medium">{t.viewSchedule.shift7h}</th>
+                <th className="p-2 text-center border-r font-medium">{t.viewSchedule.shift17h1}</th>
+                <th className="p-2 text-center font-medium">{t.viewSchedule.shift17h2}</th>
               </tr>
             </thead>
             <tbody>
@@ -448,9 +450,9 @@ export const ViewSchedule = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'draft':
-        return <Badge variant="secondary">Draft</Badge>;
+        return <Badge variant="secondary">{t.viewSchedule.draft}</Badge>;
       case 'approved':
-        return <Badge variant="default">Approved</Badge>;
+        return <Badge variant="default">{t.viewSchedule.approved}</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -477,7 +479,7 @@ export const ViewSchedule = () => {
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
           <CalendarDays className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-muted-foreground">Loading schedules...</p>
+          <p className="text-muted-foreground">{t.viewSchedule.loading}</p>
         </div>
       </div>
     );
@@ -487,7 +489,7 @@ export const ViewSchedule = () => {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <Eye className="h-5 w-5" />
-        <h2 className="text-2xl font-bold">View Schedules</h2>
+        <h2 className="text-2xl font-bold">{t.viewSchedule.title}</h2>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -496,13 +498,13 @@ export const ViewSchedule = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />
-              Available Schedules
+              {t.viewSchedule.availableSchedules}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {schedules.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">
-                No schedules generated yet
+                {t.viewSchedule.noSchedulesGenerated}
               </p>
             ) : (
               <div className="space-y-2">
@@ -520,7 +522,7 @@ export const ViewSchedule = () => {
                           {MONTHS[schedule.month - 1]} {schedule.year}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Generated {format(parseISO(schedule.generated_at), 'MMM dd, yyyy')}
+                          {t.viewSchedule.generated} {format(parseISO(schedule.generated_at), 'MMM dd, yyyy')}
                         </p>
                       </div>
                       {getStatusBadge(schedule.status)}
@@ -540,7 +542,7 @@ export const ViewSchedule = () => {
                 <Users className="h-4 w-4" />
                 {selectedSchedule ? 
                   `${MONTHS[selectedSchedule.month - 1]} ${selectedSchedule.year} Schedule` : 
-                  'Select a Schedule'
+                  t.viewSchedule.selectSchedule
                 }
               </span>
               <div className="flex items-center gap-2">
@@ -569,7 +571,7 @@ export const ViewSchedule = () => {
                     onClick={() => approveSchedule(selectedSchedule.id)}
                     size="sm"
                   >
-                    Approve Schedule
+                    {t.viewSchedule.approveSchedule}
                   </Button>
                 )}
               </div>
@@ -580,10 +582,10 @@ export const ViewSchedule = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <strong>Status:</strong> {getStatusBadge(selectedSchedule.status)}
+                    <strong>{t.viewSchedule.status}:</strong> {getStatusBadge(selectedSchedule.status)}
                   </div>
                   <div>
-                    <strong>Total Assignments:</strong> {assignments.length}
+                    <strong>{t.viewSchedule.totalAssignments}:</strong> {assignments.length}
                   </div>
                 </div>
 
@@ -592,7 +594,7 @@ export const ViewSchedule = () => {
                   <>
                     {/* Calendar View */}
                     <div className="space-y-4">
-                      <h4 className="font-medium">Schedule Calendar</h4>
+                      <h4 className="font-medium">{t.viewSchedule.scheduleCalendar}</h4>
                       <Calendar
                         mode="single"
                         selected={selectedDate}
@@ -607,7 +609,7 @@ export const ViewSchedule = () => {
                       <div className="space-y-2">
                         <h4 className="font-medium flex items-center gap-2">
                           <Clock className="h-4 w-4" />
-                          Assignments for {format(selectedDate, 'MMMM dd, yyyy')}
+                          {t.viewSchedule.assignmentsFor} {format(selectedDate, 'MMMM dd, yyyy')}
                         </h4>
                         {(() => {
                           const dayAssignments = getAssignmentsForDate(selectedDate);
@@ -627,9 +629,9 @@ export const ViewSchedule = () => {
                                           value={selectedDoctorId} 
                                           onValueChange={setSelectedDoctorId}
                                         >
-                                          <SelectTrigger className="w-48">
-                                            <SelectValue placeholder="Select doctor" />
-                                          </SelectTrigger>
+                                         <SelectTrigger className="w-48">
+                                           <SelectValue placeholder={t.viewSchedule.selectDoctor} />
+                                         </SelectTrigger>
                                           <SelectContent>
                                             {doctors.map((doctor) => (
                                               <SelectItem key={doctor.id} value={doctor.id}>
@@ -657,17 +659,17 @@ export const ViewSchedule = () => {
                                       <div className="flex items-center gap-2">
                                         <div>
                                           <p className="font-medium">{assignment.doctor.full_name}</p>
-                                          <p className="text-sm text-muted-foreground">
-                                            {assignment.doctor.alias}
-                                            {!assignment.is_original && (
-                                              <span className="ml-2 text-xs text-orange-600">(Modified)</span>
-                                            )}
-                                            {leaveStatus === 'approved' && (
-                                              <span className="ml-2 text-xs text-red-600 font-medium">(Leave Approved)</span>
-                                            )}
-                                            {leaveStatus === 'pending' && (
-                                              <span className="ml-2 text-xs text-yellow-600 font-medium">(Leave Pending)</span>
-                                            )}
+                                           <p className="text-sm text-muted-foreground">
+                                             {assignment.doctor.alias}
+                                             {!assignment.is_original && (
+                                               <span className="ml-2 text-xs text-orange-600">{t.viewSchedule.modified}</span>
+                                             )}
+                                             {leaveStatus === 'approved' && (
+                                               <span className="ml-2 text-xs text-red-600 font-medium">{t.viewSchedule.leaveApproved}</span>
+                                             )}
+                                             {leaveStatus === 'pending' && (
+                                               <span className="ml-2 text-xs text-yellow-600 font-medium">{t.viewSchedule.leavePending}</span>
+                                             )}
                                           </p>
                                         </div>
                                         <Button 
@@ -680,16 +682,16 @@ export const ViewSchedule = () => {
                                       </div>
                                     )}
                                   </div>
-                                  <Badge variant="outline">
-                                    {assignment.shift_type} shift
+                                 <Badge variant="outline">
+                                   {assignment.shift_type} {t.viewSchedule.shift}
                                   </Badge>
                                 </div>
                               );
                               })}
                             </div>
-                          ) : (
-                            <p className="text-muted-foreground text-sm">
-                              No assignments for this date
+                           ) : (
+                             <p className="text-muted-foreground text-sm">
+                               {t.viewSchedule.noAssignmentsForDate}
                             </p>
                           );
                         })()}
@@ -703,7 +705,7 @@ export const ViewSchedule = () => {
                 {/* All Assignments List - Only show in calendar view */}
                 {viewMode === 'calendar' && (
                   <div className="space-y-2">
-                    <h4 className="font-medium">All Assignments</h4>
+                    <h4 className="font-medium">{t.viewSchedule.allAssignments}</h4>
                     <div className="max-h-64 overflow-y-auto space-y-1">
                       {assignments.map((assignment) => {
                         const leaveStatus = getLeaveRequestStatus(assignment.doctor_id, assignment.date);
@@ -722,9 +724,9 @@ export const ViewSchedule = () => {
                                  value={selectedDoctorId} 
                                  onValueChange={setSelectedDoctorId}
                                >
-                                 <SelectTrigger className="w-40">
-                                   <SelectValue placeholder="Select doctor" />
-                                 </SelectTrigger>
+                                  <SelectTrigger className="w-40">
+                                    <SelectValue placeholder={t.viewSchedule.selectDoctor} />
+                                  </SelectTrigger>
                                  <SelectContent>
                                    {doctors.map((doctor) => (
                                      <SelectItem key={doctor.id} value={doctor.id}>
@@ -754,17 +756,17 @@ export const ViewSchedule = () => {
                                  {format(parseISO(assignment.date), 'MMM dd')}
                                </span>
                                <span className="mx-2">-</span>
-                                <span>
-                                  {assignment.doctor.full_name}
-                                  {!assignment.is_original && (
-                                    <span className="ml-1 text-xs text-orange-600">(Modified)</span>
-                                  )}
-                                  {leaveStatus === 'approved' && (
-                                    <span className="ml-1 text-xs text-red-600 font-medium">(Leave Approved)</span>
-                                  )}
-                                  {leaveStatus === 'pending' && (
-                                    <span className="ml-1 text-xs text-yellow-600 font-medium">(Leave Pending)</span>
-                                  )}
+                                 <span>
+                                   {assignment.doctor.full_name}
+                                   {!assignment.is_original && (
+                                     <span className="ml-1 text-xs text-orange-600">{t.viewSchedule.modified}</span>
+                                   )}
+                                   {leaveStatus === 'approved' && (
+                                     <span className="ml-1 text-xs text-red-600 font-medium">{t.viewSchedule.leaveApproved}</span>
+                                   )}
+                                   {leaveStatus === 'pending' && (
+                                     <span className="ml-1 text-xs text-yellow-600 font-medium">{t.viewSchedule.leavePending}</span>
+                                   )}
                                 </span>
                                 <Button 
                                   size="sm" 
@@ -790,7 +792,7 @@ export const ViewSchedule = () => {
               <div className="text-center py-8">
                 <CalendarDays className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="text-muted-foreground">
-                  Select a schedule from the left to view details
+                  {t.viewSchedule.selectScheduleFromLeft}
                 </p>
               </div>
             )}
