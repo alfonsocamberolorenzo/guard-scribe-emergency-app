@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarDays, Eye, Users, Clock, Edit, Save, X, Table } from "lucide-react";
-import { format, parseISO, getDaysInMonth } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { format, parseISO, getDaysInMonth, getDay } from "date-fns";
 
 interface Schedule {
   id: string;
@@ -302,21 +303,33 @@ export const ViewSchedule = () => {
     const month = selectedSchedule.month;
     const daysInMonth = getDaysInMonth(new Date(year, month - 1));
     
+    const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
     // Create array of all days in the month
     const monthDays = Array.from({ length: daysInMonth }, (_, i) => {
       const day = i + 1;
+      const dateObj = new Date(year, month - 1, day);
       const date = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       const dayAssignments = assignments.filter(a => a.date === date);
+      const weekday = weekdayNames[getDay(dateObj)];
+      
+      const assignment_7h = dayAssignments.find(a => a.shift_type === '7h');
+      const assignment_17h_1 = dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 1);
+      const assignment_17h_2 = dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 2);
       
       return {
         day,
+        weekday,
         date,
-        shift_7h: dayAssignments.find(a => a.shift_type === '7h')?.doctor.alias || '-',
-        shift_17h_1: dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 1)?.doctor.alias || '-',
-        shift_17h_2: dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 2)?.doctor.alias || '-',
-        hasLeave_7h: dayAssignments.find(a => a.shift_type === '7h') ? getLeaveRequestStatus(dayAssignments.find(a => a.shift_type === '7h')!.doctor_id, date) : null,
-        hasLeave_17h_1: dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 1) ? getLeaveRequestStatus(dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 1)!.doctor_id, date) : null,
-        hasLeave_17h_2: dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 2) ? getLeaveRequestStatus(dayAssignments.find(a => a.shift_type === '17h' && a.shift_position === 2)!.doctor_id, date) : null,
+        assignment_7h,
+        assignment_17h_1,
+        assignment_17h_2,
+        shift_7h: assignment_7h?.doctor.alias || '-',
+        shift_17h_1: assignment_17h_1?.doctor.alias || '-',
+        shift_17h_2: assignment_17h_2?.doctor.alias || '-',
+        hasLeave_7h: assignment_7h ? getLeaveRequestStatus(assignment_7h.doctor_id, date) : null,
+        hasLeave_17h_1: assignment_17h_1 ? getLeaveRequestStatus(assignment_17h_1.doctor_id, date) : null,
+        hasLeave_17h_2: assignment_17h_2 ? getLeaveRequestStatus(assignment_17h_2.doctor_id, date) : null,
       };
     });
 
@@ -324,6 +337,70 @@ export const ViewSchedule = () => {
       if (leaveStatus === 'approved') return 'bg-red-100 text-red-800 border-red-300';
       if (leaveStatus === 'pending') return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       return '';
+    };
+
+    const renderEditableCell = (assignment: Assignment | undefined, dayData: any, shiftType: string) => {
+      if (!assignment) return '-';
+      
+      const leaveStatus = shiftType === '7h' ? dayData.hasLeave_7h : 
+                         shiftType === '17h_1' ? dayData.hasLeave_17h_1 : dayData.hasLeave_17h_2;
+      
+      return (
+        <div className="flex items-center justify-center gap-1">
+          {editingAssignment === assignment.id ? (
+            <div className="flex items-center gap-1">
+              <Select 
+                value={selectedDoctorId} 
+                onValueChange={setSelectedDoctorId}
+              >
+                <SelectTrigger className="w-20 h-6 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {doctors.map((doctor) => (
+                    <SelectItem key={doctor.id} value={doctor.id}>
+                      {doctor.alias}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                size="sm" 
+                className="h-5 w-5 p-0"
+                onClick={() => saveAssignmentChange(assignment.id)}
+                disabled={!selectedDoctorId}
+              >
+                <Save className="h-3 w-3" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-5 w-5 p-0"
+                onClick={cancelEditing}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <span>
+                {assignment.doctor.alias}
+                {!assignment.is_original && <span className="text-xs text-orange-600">*</span>}
+              </span>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="h-4 w-4 p-0 opacity-50 hover:opacity-100"
+                onClick={() => startEditing(assignment)}
+              >
+                <Edit className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+          {leaveStatus === 'approved' && <span className="block text-xs text-red-600">(Leave)</span>}
+          {leaveStatus === 'pending' && <span className="block text-xs text-yellow-600">(Pending)</span>}
+        </div>
+      );
     };
 
     return (
@@ -343,22 +420,19 @@ export const ViewSchedule = () => {
               {monthDays.map((dayData) => (
                 <tr key={dayData.day} className="border-b hover:bg-muted/50">
                   <td className="p-2 border-r font-medium">
-                    {dayData.day}
+                    <div className="flex flex-col">
+                      <span>{dayData.day}</span>
+                      <span className="text-xs text-muted-foreground">{dayData.weekday}</span>
+                    </div>
                   </td>
                   <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_7h)}`}>
-                    {dayData.shift_7h}
-                    {dayData.hasLeave_7h === 'approved' && <span className="block text-xs text-red-600">(Leave)</span>}
-                    {dayData.hasLeave_7h === 'pending' && <span className="block text-xs text-yellow-600">(Pending)</span>}
+                    {renderEditableCell(dayData.assignment_7h, dayData, '7h')}
                   </td>
                   <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_17h_1)}`}>
-                    {dayData.shift_17h_1}
-                    {dayData.hasLeave_17h_1 === 'approved' && <span className="block text-xs text-red-600">(Leave)</span>}
-                    {dayData.hasLeave_17h_1 === 'pending' && <span className="block text-xs text-yellow-600">(Pending)</span>}
+                    {renderEditableCell(dayData.assignment_17h_1, dayData, '17h_1')}
                   </td>
                   <td className={`p-2 text-center ${getCellClassName(dayData.hasLeave_17h_2)}`}>
-                    {dayData.shift_17h_2}
-                    {dayData.hasLeave_17h_2 === 'approved' && <span className="block text-xs text-red-600">(Leave)</span>}
-                    {dayData.hasLeave_17h_2 === 'pending' && <span className="block text-xs text-yellow-600">(Pending)</span>}
+                    {renderEditableCell(dayData.assignment_17h_2, dayData, '17h_2')}
                   </td>
                 </tr>
               ))}
