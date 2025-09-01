@@ -809,13 +809,13 @@ function buildHistory(
   }
 
   for (const a of histAssignments) {
-    // Tipos: usamos el histórico de la query (máx 12 meses)
-    if (a.shift_type === "7h" || a.shift_type === "17h") {
+    const y = new Date(a.date + "T00:00:00").getFullYear();
+    // Tipos: contar SOLO si pertenece al año actual del mes a generar
+    if (y === currentYear && (a.shift_type === "7h" || a.shift_type === "17h")) {
       totalsByType[a.shift_type as ShiftType][a.doctor_id] =
         (totalsByType[a.shift_type as ShiftType][a.doctor_id] || 0) + 1;
     }
     // DOW: contar SOLO si pertenece al año actual del mes a generar
-    const y = new Date(a.date + "T00:00:00").getFullYear();
     if (y === currentYear) {
       const d = dowOf(a.date) as DayOfWeek;
       totalsByDOW[d][a.doctor_id] = (totalsByDOW[d][a.doctor_id] || 0) + 1;
