@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Eye, Users, Clock, Edit, Save, X, Table, Trash2 } from "lucide-react";
+import { CalendarDays, Eye, Users, Clock, Edit, Save, X, Table, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { format, parseISO, getDaysInMonth, getDay } from "date-fns";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -67,6 +67,7 @@ export const ViewSchedule = () => {
   const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('table');
+  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set([new Date().getFullYear()]));
   const { toast } = useToast();
 
   useEffect(() => {
@@ -335,6 +336,35 @@ export const ViewSchedule = () => {
     }
   };
 
+  const toggleYearExpansion = (year: number) => {
+    const newExpandedYears = new Set(expandedYears);
+    if (newExpandedYears.has(year)) {
+      newExpandedYears.delete(year);
+    } else {
+      newExpandedYears.add(year);
+    }
+    setExpandedYears(newExpandedYears);
+  };
+
+  const groupSchedulesByYear = () => {
+    const grouped = schedules.reduce((acc, schedule) => {
+      if (!acc[schedule.year]) {
+        acc[schedule.year] = [];
+      }
+      acc[schedule.year].push(schedule);
+      return acc;
+    }, {} as Record<number, Schedule[]>);
+
+    // Sort years in descending order and schedules within each year by month descending
+    return Object.keys(grouped)
+      .map(Number)
+      .sort((a, b) => b - a)
+      .map(year => ({
+        year,
+        schedules: grouped[year].sort((a, b) => b.month - a.month)
+      }));
+  };
+
   const getAssignmentsForDate = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return assignments.filter(assignment => assignment.date === dateStr);
@@ -549,60 +579,81 @@ export const ViewSchedule = () => {
                 {t.viewSchedule.noSchedulesGenerated}
               </p>
             ) : (
-              <div className="space-y-2">
-                {schedules.map((schedule) => (
-                  <div
-                    key={schedule.id}
-                     className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${
-                       selectedSchedule?.id === schedule.id ? 'bg-muted border-primary' : ''
-                     }`}
-                   >
-                     <div 
-                       className="flex items-center justify-between"
-                       onClick={() => handleScheduleSelect(schedule)}
-                     >
-                       <div>
-                         <p className="font-medium">
-                           {MONTHS[schedule.month - 1]} {schedule.year}
-                         </p>
-                         <p className="text-sm text-muted-foreground">
-                           {t.viewSchedule.generated} {format(parseISO(schedule.generated_at), 'MMM dd, yyyy')}
-                         </p>
-                       </div>
-                       <div className="flex items-center gap-2">
-                         {getStatusBadge(schedule.status)}
-                         <AlertDialog>
-                           <AlertDialogTrigger asChild>
-                             <Button
-                               size="sm"
-                               variant="ghost"
-                               className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                               onClick={(e) => e.stopPropagation()}
+              <div className="space-y-3">
+                {groupSchedulesByYear().map(({ year, schedules: yearSchedules }) => (
+                  <div key={year} className="space-y-2">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-between p-2 h-auto font-medium text-left"
+                      onClick={() => toggleYearExpansion(year)}
+                    >
+                      <span>{year}</span>
+                      {expandedYears.has(year) ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </Button>
+                    
+                    {expandedYears.has(year) && (
+                      <div className="space-y-2 pl-4">
+                        {yearSchedules.map((schedule) => (
+                          <div
+                            key={schedule.id}
+                             className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${
+                               selectedSchedule?.id === schedule.id ? 'bg-muted border-primary' : ''
+                             }`}
+                           >
+                             <div 
+                               className="flex items-center justify-between"
+                               onClick={() => handleScheduleSelect(schedule)}
                              >
-                               <Trash2 className="h-4 w-4" />
-                             </Button>
-                           </AlertDialogTrigger>
-                           <AlertDialogContent>
-                             <AlertDialogHeader>
-                               <AlertDialogTitle>{t.viewSchedule.deleteScheduleTitle}</AlertDialogTitle>
-                               <AlertDialogDescription>
-                                 {t.viewSchedule.deleteScheduleDescription} {MONTHS[schedule.month - 1]} {schedule.year}?
-                               </AlertDialogDescription>
-                             </AlertDialogHeader>
-                             <AlertDialogFooter>
-                               <AlertDialogCancel>{t.viewSchedule.cancel}</AlertDialogCancel>
-                               <AlertDialogAction
-                                 onClick={() => deleteSchedule(schedule.id)}
-                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                               >
-                                 {t.viewSchedule.delete}
-                               </AlertDialogAction>
-                             </AlertDialogFooter>
-                           </AlertDialogContent>
-                         </AlertDialog>
-                       </div>
-                     </div>
-                   </div>
+                               <div>
+                                 <p className="font-medium">
+                                   {MONTHS[schedule.month - 1]} {schedule.year}
+                                 </p>
+                                 <p className="text-sm text-muted-foreground">
+                                   {t.viewSchedule.generated} {format(parseISO(schedule.generated_at), 'MMM dd, yyyy')}
+                                 </p>
+                               </div>
+                               <div className="flex items-center gap-2">
+                                 {getStatusBadge(schedule.status)}
+                                 <AlertDialog>
+                                   <AlertDialogTrigger asChild>
+                                     <Button
+                                       size="sm"
+                                       variant="ghost"
+                                       className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                       onClick={(e) => e.stopPropagation()}
+                                     >
+                                       <Trash2 className="h-4 w-4" />
+                                     </Button>
+                                   </AlertDialogTrigger>
+                                   <AlertDialogContent>
+                                     <AlertDialogHeader>
+                                       <AlertDialogTitle>{t.viewSchedule.deleteScheduleTitle}</AlertDialogTitle>
+                                       <AlertDialogDescription>
+                                         {t.viewSchedule.deleteScheduleDescription} {MONTHS[schedule.month - 1]} {schedule.year}?
+                                       </AlertDialogDescription>
+                                     </AlertDialogHeader>
+                                     <AlertDialogFooter>
+                                       <AlertDialogCancel>{t.viewSchedule.cancel}</AlertDialogCancel>
+                                       <AlertDialogAction
+                                         onClick={() => deleteSchedule(schedule.id)}
+                                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                       >
+                                         {t.viewSchedule.delete}
+                                       </AlertDialogAction>
+                                     </AlertDialogFooter>
+                                   </AlertDialogContent>
+                                 </AlertDialog>
+                               </div>
+                             </div>
+                           </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
