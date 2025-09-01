@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Eye, Users, Clock, Edit, Save, X, Table } from "lucide-react";
+import { CalendarDays, Eye, Users, Clock, Edit, Save, X, Table, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { format, parseISO, getDaysInMonth, getDay } from "date-fns";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -293,6 +294,47 @@ export const ViewSchedule = () => {
     }
   };
 
+  const deleteSchedule = async (scheduleId: string) => {
+    try {
+      // First delete all assignments for this schedule
+      const { error: assignmentsError } = await supabase
+        .from('guard_assignments')
+        .delete()
+        .eq('schedule_id', scheduleId);
+
+      if (assignmentsError) throw assignmentsError;
+
+      // Then delete the schedule itself
+      const { error: scheduleError } = await supabase
+        .from('guard_schedules')
+        .delete()
+        .eq('id', scheduleId);
+
+      if (scheduleError) throw scheduleError;
+
+      toast({
+        title: t.viewSchedule.scheduleDeleted,
+        description: t.viewSchedule.scheduleDeletedDesc,
+      });
+
+      // Reset selected schedule if it was the deleted one
+      if (selectedSchedule?.id === scheduleId) {
+        setSelectedSchedule(null);
+        setAssignments([]);
+      }
+
+      // Refresh schedules list
+      fetchSchedules();
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+      toast({
+        title: t.viewSchedule.error,
+        description: t.viewSchedule.errorDeletingSchedule,
+        variant: "destructive",
+      });
+    }
+  };
+
   const getAssignmentsForDate = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return assignments.filter(assignment => assignment.date === dateStr);
@@ -511,23 +553,56 @@ export const ViewSchedule = () => {
                 {schedules.map((schedule) => (
                   <div
                     key={schedule.id}
-                    className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${
-                      selectedSchedule?.id === schedule.id ? 'bg-muted border-primary' : ''
-                    }`}
-                    onClick={() => handleScheduleSelect(schedule)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">
-                          {MONTHS[schedule.month - 1]} {schedule.year}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {t.viewSchedule.generated} {format(parseISO(schedule.generated_at), 'MMM dd, yyyy')}
-                        </p>
-                      </div>
-                      {getStatusBadge(schedule.status)}
-                    </div>
-                  </div>
+                     className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${
+                       selectedSchedule?.id === schedule.id ? 'bg-muted border-primary' : ''
+                     }`}
+                   >
+                     <div 
+                       className="flex items-center justify-between"
+                       onClick={() => handleScheduleSelect(schedule)}
+                     >
+                       <div>
+                         <p className="font-medium">
+                           {MONTHS[schedule.month - 1]} {schedule.year}
+                         </p>
+                         <p className="text-sm text-muted-foreground">
+                           {t.viewSchedule.generated} {format(parseISO(schedule.generated_at), 'MMM dd, yyyy')}
+                         </p>
+                       </div>
+                       <div className="flex items-center gap-2">
+                         {getStatusBadge(schedule.status)}
+                         <AlertDialog>
+                           <AlertDialogTrigger asChild>
+                             <Button
+                               size="sm"
+                               variant="ghost"
+                               className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                               onClick={(e) => e.stopPropagation()}
+                             >
+                               <Trash2 className="h-4 w-4" />
+                             </Button>
+                           </AlertDialogTrigger>
+                           <AlertDialogContent>
+                             <AlertDialogHeader>
+                               <AlertDialogTitle>{t.viewSchedule.deleteScheduleTitle}</AlertDialogTitle>
+                               <AlertDialogDescription>
+                                 {t.viewSchedule.deleteScheduleDescription} {MONTHS[schedule.month - 1]} {schedule.year}?
+                               </AlertDialogDescription>
+                             </AlertDialogHeader>
+                             <AlertDialogFooter>
+                               <AlertDialogCancel>{t.viewSchedule.cancel}</AlertDialogCancel>
+                               <AlertDialogAction
+                                 onClick={() => deleteSchedule(schedule.id)}
+                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                               >
+                                 {t.viewSchedule.delete}
+                               </AlertDialogAction>
+                             </AlertDialogFooter>
+                           </AlertDialogContent>
+                         </AlertDialog>
+                       </div>
+                     </div>
+                   </div>
                 ))}
               </div>
             )}

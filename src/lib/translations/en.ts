@@ -114,7 +114,14 @@ export const en = {
     scheduleApprovedSyncFailed: "Schedule approved but Google Calendar sync failed",
     calendarSynced: "Calendar Synced",
     calendarSyncedDesc: "Schedule synchronized with Google Calendar",
-    errorApprovingSchedule: "Failed to approve schedule"
+    errorApprovingSchedule: "Failed to approve schedule",
+    scheduleDeleted: "Schedule deleted",
+    scheduleDeletedDesc: "Schedule and all its assignments have been removed",
+    errorDeletingSchedule: "Failed to delete schedule",
+    deleteScheduleTitle: "Delete Schedule",
+    deleteScheduleDescription: "Are you sure you want to delete the schedule for",
+    cancel: "Cancel",
+    delete: "Delete"
   },
 
   // Leave Requests

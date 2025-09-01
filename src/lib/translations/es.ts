@@ -116,7 +116,14 @@ export const es: TranslationKeys = {
     scheduleApprovedSyncFailed: "Horario aprobado pero falló la sincronización con Google Calendar",
     calendarSynced: "Calendario Sincronizado",
     calendarSyncedDesc: "Horario sincronizado con Google Calendar",
-    errorApprovingSchedule: "Error al aprobar horario"
+    errorApprovingSchedule: "Error al aprobar horario",
+    scheduleDeleted: "Horario eliminado",
+    scheduleDeletedDesc: "El horario y todas sus asignaciones han sido eliminados",
+    errorDeletingSchedule: "Error al eliminar el horario",
+    deleteScheduleTitle: "Eliminar Horario",
+    deleteScheduleDescription: "¿Está seguro de que desea eliminar el horario de",
+    cancel: "Cancelar",
+    delete: "Eliminar"
   },
 
   // Leave Requests
