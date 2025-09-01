@@ -415,9 +415,9 @@ export const ViewSchedule = () => {
             <thead className="bg-muted sticky top-0">
               <tr>
                 <th className="p-2 text-left border-r font-medium">{t.viewSchedule.day}</th>
-                <th className="p-2 text-center border-r font-medium">{t.viewSchedule.shift7h}</th>
                 <th className="p-2 text-center border-r font-medium">{t.viewSchedule.shift17h1}</th>
-                <th className="p-2 text-center font-medium">{t.viewSchedule.shift17h2}</th>
+                <th className="p-2 text-center border-r font-medium">{t.viewSchedule.shift17h2}</th>
+                <th className="p-2 text-center font-medium">{t.viewSchedule.shift7h}</th>
               </tr>
             </thead>
             <tbody>
@@ -429,14 +429,14 @@ export const ViewSchedule = () => {
                       <span className="text-xs text-muted-foreground">{dayData.weekday}</span>
                     </div>
                   </td>
-                  <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_7h)}`}>
-                    {renderEditableCell(dayData.assignment_7h, dayData, '7h')}
-                  </td>
                   <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_17h_1)}`}>
                     {renderEditableCell(dayData.assignment_17h_1, dayData, '17h_1')}
                   </td>
-                  <td className={`p-2 text-center ${getCellClassName(dayData.hasLeave_17h_2)}`}>
+                  <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_17h_2)}`}>
                     {renderEditableCell(dayData.assignment_17h_2, dayData, '17h_2')}
+                  </td>
+                  <td className={`p-2 text-center ${getCellClassName(dayData.hasLeave_7h)}`}>
+                    {renderEditableCell(dayData.assignment_7h, dayData, '7h')}
                   </td>
                 </tr>
               ))}
