@@ -411,9 +411,10 @@ export const ViewSchedule = () => {
       };
     });
 
-    const getCellClassName = (leaveStatus: string | null) => {
-      if (leaveStatus === 'approved') return 'bg-red-100 text-red-800 border-red-300';
-      if (leaveStatus === 'pending') return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    const getCellClassName = (leaveStatus: string | null, leaveRequest : LeaveRequest) => {
+      const hasGuardConflict = !leaveRequest?.guard_substitute_name;
+      if (leaveStatus === 'approved' && hasGuardConflict) return 'bg-red-100 text-red-800 border-red-300';
+      if (leaveStatus === 'pending' && hasGuardConflict) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       return '';
     };
 
@@ -470,11 +471,10 @@ export const ViewSchedule = () => {
               <span>
                  {assignment.doctor.alias}
                  {leaveRequest?.guard_substitute_name && (
-                   <span className="text-xs text-muted-foreground"> ({leaveRequest.guard_substitute_name})</span>
+                   <span> ({leaveRequest.guard_substitute_name})</span>
                  )}
                  {!assignment.is_original && <span className="text-xs text-orange-600">*</span>}
               </span>
-              {hasGuardConflict && <span className="text-red-600 text-sm">⚠️</span>}
               <Button 
                 size="sm" 
                 variant="ghost" 
@@ -485,8 +485,6 @@ export const ViewSchedule = () => {
               </Button>
             </div>
           )}
-          {leaveStatus === 'approved' && <span className="block text-xs text-red-600">{t.viewSchedule.leave}</span>}
-          {leaveStatus === 'pending' && <span className="block text-xs text-yellow-600">{t.viewSchedule.pending}</span>}
         </div>
       );
     };
@@ -513,13 +511,13 @@ export const ViewSchedule = () => {
                       <span className="text-xs text-muted-foreground">{dayData.weekday}</span>
                     </div>
                   </td>
-                  <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_17h_1)}`}>
+                  <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_17h_1, dayData.leaveRequest_17h_1)}`}>
                     {renderEditableCell(dayData.assignment_17h_1, dayData, '17h_1')}
                   </td>
-                  <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_17h_2)}`}>
+                  <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_17h_2, dayData.leaveRequest_17h_2)}`}>
                     {renderEditableCell(dayData.assignment_17h_2, dayData, '17h_2')}
                   </td>
-                  <td className={`p-2 text-center ${getCellClassName(dayData.hasLeave_7h)}`}>
+                  <td className={`p-2 text-center ${getCellClassName(dayData.hasLeave_7h, dayData.leaveRequest_7h)}`}>
                     {renderEditableCell(dayData.assignment_7h, dayData, '7h')}
                   </td>
                 </tr>
@@ -557,8 +555,10 @@ export const ViewSchedule = () => {
 
   const getAssignmentStatusColor = (assignment: Assignment) => {
     const leaveStatus = getLeaveRequestStatus(assignment.doctor_id, assignment.date);
-    if (leaveStatus === 'approved') return 'bg-red-100 border-red-300';
-    if (leaveStatus === 'pending') return 'bg-yellow-100 border-yellow-300';
+    const leaveRequest = getLeaveRequestForDoctor(assignment.doctor_id, assignment.date);
+    const hasGuardConflict = !leaveRequest?.guard_substitute_name;
+    if (leaveStatus === 'approved' && hasGuardConflict) return 'bg-red-100 border-red-300';
+    if (leaveStatus === 'pending' && hasGuardConflict) return 'bg-yellow-100 border-yellow-300';
     return '';
   };
 
@@ -760,7 +760,6 @@ export const ViewSchedule = () => {
                                {dayAssignments.map((assignment) => {
                                  const leaveRequest = getLeaveRequestForDoctor(assignment.doctor_id, assignment.date);
                                  const leaveStatus = leaveRequest?.status;
-                 const hasGuardConflict = leaveStatus === 'approved' && !leaveRequest?.guard_substitute_name;
                                  return (
                                  <div
                                    key={assignment.id}
@@ -804,7 +803,6 @@ export const ViewSchedule = () => {
                                          <div>
                                            <p className="font-medium">
                                              {assignment.doctor.full_name}
-                                             {hasGuardConflict && <span className="ml-2 text-red-600">⚠️</span>}
                                            </p>
                                             <p className="text-sm text-muted-foreground">
                                               {assignment.doctor.alias}
@@ -859,6 +857,7 @@ export const ViewSchedule = () => {
                     <div className="max-h-64 overflow-y-auto space-y-1">
                       {assignments.map((assignment) => {
                         const leaveStatus = getLeaveRequestStatus(assignment.doctor_id, assignment.date);
+                        const leaveRequest = getLeaveRequestForDoctor(assignment.doctor_id, assignment.date);
                         return (
                         <div
                           key={assignment.id}
@@ -911,12 +910,9 @@ export const ViewSchedule = () => {
                                    {!assignment.is_original && (
                                      <span className="ml-1 text-xs text-orange-600">{t.viewSchedule.modified}</span>
                                    )}
-                                   {leaveStatus === 'approved' && (
-                                     <span className="ml-1 text-xs text-red-600 font-medium">{t.viewSchedule.leaveApproved}</span>
-                                   )}
-                                   {leaveStatus === 'pending' && (
-                                     <span className="ml-1 text-xs text-yellow-600 font-medium">{t.viewSchedule.leavePending}</span>
-                                   )}
+                                   {leaveRequest?.guard_substitute_name && (
+                                    <span> ({leaveRequest.guard_substitute_name})</span>
+                                  )}
                                 </span>
                                 <Button 
                                   size="sm" 

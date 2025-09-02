@@ -331,7 +331,11 @@ export const LeaveRequests = () => {
 
   const getLeaveTextColor = (request: LeaveRequest) => {
     if (request.status === 'pending') {
-      return 'text-gray-500';
+      if (request.has_substitute && request.substitute_name) {
+        return 'text-black';
+      } else {
+        return 'text-yellow-600';
+      }
     }
     if (request.status === 'approved') {
       if (request.has_substitute && request.substitute_name) {
