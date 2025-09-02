@@ -42,6 +42,7 @@ interface LeaveRequest {
   start_date: string;
   end_date: string;
   status: string;
+  guard_substitute_name?: string;
 }
 
 interface Doctor {
@@ -167,7 +168,7 @@ export const ViewSchedule = () => {
 
       const { data, error } = await supabase
         .from('leave_requests')
-        .select('id, doctor_id, start_date, end_date, status')
+        .select('id, doctor_id, start_date, end_date, status, guard_substitute_name')
         .or(`start_date.lte.${endOfMonthStr},end_date.gte.${startOfMonth}`);
 
       if (error) throw error;
@@ -404,12 +405,16 @@ export const ViewSchedule = () => {
         hasLeave_7h: assignment_7h ? getLeaveRequestStatus(assignment_7h.doctor_id, date) : null,
         hasLeave_17h_1: assignment_17h_1 ? getLeaveRequestStatus(assignment_17h_1.doctor_id, date) : null,
         hasLeave_17h_2: assignment_17h_2 ? getLeaveRequestStatus(assignment_17h_2.doctor_id, date) : null,
+        leaveRequest_7h: assignment_7h ? getLeaveRequestForDoctor(assignment_7h.doctor_id, date) : null,
+        leaveRequest_17h_1: assignment_17h_1 ? getLeaveRequestForDoctor(assignment_17h_1.doctor_id, date) : null,
+        leaveRequest_17h_2: assignment_17h_2 ? getLeaveRequestForDoctor(assignment_17h_2.doctor_id, date) : null,
       };
     });
 
-    const getCellClassName = (leaveStatus: string | null) => {
-      if (leaveStatus === 'approved') return 'bg-red-100 text-red-800 border-red-300';
-      if (leaveStatus === 'pending') return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    const getCellClassName = (leaveStatus: string | null, leaveRequest : LeaveRequest) => {
+      const hasGuardConflict = !leaveRequest?.guard_substitute_name;
+      if (leaveStatus === 'approved' && hasGuardConflict) return 'bg-red-100 text-red-800 border-red-300';
+      if (leaveStatus === 'pending' && hasGuardConflict) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       return '';
     };
 
@@ -418,6 +423,10 @@ export const ViewSchedule = () => {
       
       const leaveStatus = shiftType === '7h' ? dayData.hasLeave_7h : 
                          shiftType === '17h_1' ? dayData.hasLeave_17h_1 : dayData.hasLeave_17h_2;
+      const leaveRequest = shiftType === '7h' ? dayData.leaveRequest_7h : 
+                          shiftType === '17h_1' ? dayData.leaveRequest_17h_1 : dayData.leaveRequest_17h_2;
+      
+      const hasGuardConflict = leaveStatus === 'approved' && !leaveRequest?.guard_substitute_name;
       
       return (
         <div className="flex items-center justify-center gap-1">
@@ -461,6 +470,9 @@ export const ViewSchedule = () => {
             <div className="flex items-center gap-1">
               <span>
                  {assignment.doctor.alias}
+                 {leaveRequest?.guard_substitute_name && (
+                   <span> ({leaveRequest.guard_substitute_name})</span>
+                 )}
                  {!assignment.is_original && <span className="text-xs text-orange-600">*</span>}
               </span>
               <Button 
@@ -473,8 +485,6 @@ export const ViewSchedule = () => {
               </Button>
             </div>
           )}
-          {leaveStatus === 'approved' && <span className="block text-xs text-red-600">{t.viewSchedule.leave}</span>}
-          {leaveStatus === 'pending' && <span className="block text-xs text-yellow-600">{t.viewSchedule.pending}</span>}
         </div>
       );
     };
@@ -501,13 +511,13 @@ export const ViewSchedule = () => {
                       <span className="text-xs text-muted-foreground">{dayData.weekday}</span>
                     </div>
                   </td>
-                  <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_17h_1)}`}>
+                  <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_17h_1, dayData.leaveRequest_17h_1)}`}>
                     {renderEditableCell(dayData.assignment_17h_1, dayData, '17h_1')}
                   </td>
-                  <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_17h_2)}`}>
+                  <td className={`p-2 border-r text-center ${getCellClassName(dayData.hasLeave_17h_2, dayData.leaveRequest_17h_2)}`}>
                     {renderEditableCell(dayData.assignment_17h_2, dayData, '17h_2')}
                   </td>
-                  <td className={`p-2 text-center ${getCellClassName(dayData.hasLeave_7h)}`}>
+                  <td className={`p-2 text-center ${getCellClassName(dayData.hasLeave_7h, dayData.leaveRequest_7h)}`}>
                     {renderEditableCell(dayData.assignment_7h, dayData, '7h')}
                   </td>
                 </tr>
@@ -530,19 +540,25 @@ export const ViewSchedule = () => {
     }
   };
 
-  const getLeaveRequestStatus = (doctorId: string, date: string) => {
-    const leaveRequest = leaveRequests.find(lr => 
+  const getLeaveRequestForDoctor = (doctorId: string, date: string) => {
+    return leaveRequests.find(lr => 
       lr.doctor_id === doctorId && 
       date >= lr.start_date && 
       date <= lr.end_date
     );
+  };
+
+  const getLeaveRequestStatus = (doctorId: string, date: string) => {
+    const leaveRequest = getLeaveRequestForDoctor(doctorId, date);
     return leaveRequest?.status || null;
   };
 
   const getAssignmentStatusColor = (assignment: Assignment) => {
     const leaveStatus = getLeaveRequestStatus(assignment.doctor_id, assignment.date);
-    if (leaveStatus === 'approved') return 'bg-red-100 border-red-300';
-    if (leaveStatus === 'pending') return 'bg-yellow-100 border-yellow-300';
+    const leaveRequest = getLeaveRequestForDoctor(assignment.doctor_id, assignment.date);
+    const hasGuardConflict = !leaveRequest?.guard_substitute_name;
+    if (leaveStatus === 'approved' && hasGuardConflict) return 'bg-red-100 border-red-300';
+    if (leaveStatus === 'pending' && hasGuardConflict) return 'bg-yellow-100 border-yellow-300';
     return '';
   };
 
@@ -738,83 +754,89 @@ export const ViewSchedule = () => {
                           {t.viewSchedule.assignmentsFor} {format(selectedDate, 'MMMM dd, yyyy')}
                         </h4>
                         {(() => {
-                          const dayAssignments = getAssignmentsForDate(selectedDate);
-                          return dayAssignments.length > 0 ? (
-                            <div className="space-y-2">
-                              {dayAssignments.map((assignment) => {
-                                const leaveStatus = getLeaveRequestStatus(assignment.doctor_id, assignment.date);
-                                return (
-                                <div
-                                  key={assignment.id}
-                                  className={`flex items-center justify-between p-2 border rounded ${getAssignmentStatusColor(assignment)}`}
-                                >
-                                  <div className="flex-1">
-                                    {editingAssignment === assignment.id ? (
-                                      <div className="flex items-center gap-2">
-                                        <Select 
-                                          value={selectedDoctorId} 
-                                          onValueChange={setSelectedDoctorId}
-                                        >
-                                         <SelectTrigger className="w-48">
-                                           <SelectValue placeholder={t.viewSchedule.selectDoctor} />
-                                         </SelectTrigger>
-                                          <SelectContent>
-                                            {doctors.map((doctor) => (
-                                              <SelectItem key={doctor.id} value={doctor.id}>
-                                                {doctor.full_name} ({doctor.alias})
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                        <Button 
-                                          size="sm" 
-                                          onClick={() => saveAssignmentChange(assignment.id)}
-                                          disabled={!selectedDoctorId}
-                                        >
-                                          <Save className="h-3 w-3" />
-                                        </Button>
-                                        <Button 
-                                          size="sm" 
-                                          variant="outline" 
-                                          onClick={cancelEditing}
-                                        >
-                                          <X className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center gap-2">
-                                        <div>
-                                          <p className="font-medium">{assignment.doctor.full_name}</p>
-                                           <p className="text-sm text-muted-foreground">
-                                             {assignment.doctor.alias}
-                                             {!assignment.is_original && (
-                                               <span className="ml-2 text-xs text-orange-600">{t.viewSchedule.modified}</span>
-                                             )}
-                                             {leaveStatus === 'approved' && (
-                                               <span className="ml-2 text-xs text-red-600 font-medium">{t.viewSchedule.leaveApproved}</span>
-                                             )}
-                                             {leaveStatus === 'pending' && (
-                                               <span className="ml-2 text-xs text-yellow-600 font-medium">{t.viewSchedule.leavePending}</span>
-                                             )}
-                                          </p>
-                                        </div>
-                                        <Button 
-                                          size="sm" 
-                                          variant="ghost" 
-                                          onClick={() => startEditing(assignment)}
-                                        >
-                                          <Edit className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </div>
-                                 <Badge variant="outline">
-                                   {assignment.shift_type} {t.viewSchedule.shift}
-                                  </Badge>
-                                </div>
-                              );
-                              })}
-                            </div>
+                           const dayAssignments = getAssignmentsForDate(selectedDate);
+                           return dayAssignments.length > 0 ? (
+                             <div className="space-y-2">
+                               {dayAssignments.map((assignment) => {
+                                 const leaveRequest = getLeaveRequestForDoctor(assignment.doctor_id, assignment.date);
+                                 const leaveStatus = leaveRequest?.status;
+                                 return (
+                                 <div
+                                   key={assignment.id}
+                                   className={`flex items-center justify-between p-2 border rounded ${getAssignmentStatusColor(assignment)}`}
+                                 >
+                                   <div className="flex-1">
+                                     {editingAssignment === assignment.id ? (
+                                       <div className="flex items-center gap-2">
+                                         <Select 
+                                           value={selectedDoctorId} 
+                                           onValueChange={setSelectedDoctorId}
+                                         >
+                                          <SelectTrigger className="w-48">
+                                            <SelectValue placeholder={t.viewSchedule.selectDoctor} />
+                                          </SelectTrigger>
+                                           <SelectContent>
+                                             {doctors.map((doctor) => (
+                                               <SelectItem key={doctor.id} value={doctor.id}>
+                                                 {doctor.full_name} ({doctor.alias})
+                                               </SelectItem>
+                                             ))}
+                                           </SelectContent>
+                                         </Select>
+                                         <Button 
+                                           size="sm" 
+                                           onClick={() => saveAssignmentChange(assignment.id)}
+                                           disabled={!selectedDoctorId}
+                                         >
+                                           <Save className="h-3 w-3" />
+                                         </Button>
+                                         <Button 
+                                           size="sm" 
+                                           variant="outline" 
+                                           onClick={cancelEditing}
+                                         >
+                                           <X className="h-3 w-3" />
+                                         </Button>
+                                       </div>
+                                     ) : (
+                                       <div className="flex items-center gap-2">
+                                         <div>
+                                           <p className="font-medium">
+                                             {assignment.doctor.full_name}
+                                           </p>
+                                            <p className="text-sm text-muted-foreground">
+                                              {assignment.doctor.alias}
+                                              {leaveRequest?.guard_substitute_name && (
+                                                <span className="ml-2">({leaveRequest.guard_substitute_name})</span>
+                                              )}
+                                              {!assignment.is_original && (
+                                                <span className="ml-2 text-xs text-orange-600">{t.viewSchedule.modified}</span>
+                                              )}
+                                              {leaveStatus === 'approved' && (
+                                                <span className="ml-2 text-xs text-red-600 font-medium">{t.viewSchedule.leaveApproved}</span>
+                                              )}
+                                              {leaveStatus === 'pending' && (
+                                                <span className="ml-2 text-xs text-yellow-600 font-medium">{t.viewSchedule.leavePending}</span>
+                                              )}
+                                           </p>
+                                         </div>
+                                         <Button 
+                                           size="sm" 
+                                           variant="ghost" 
+                                           onClick={() => startEditing(assignment)}
+                                         >
+                                           <Edit className="h-3 w-3" />
+                                         </Button>
+                                       </div>
+                                     )}
+                                   </div>
+                                  <Badge variant="outline">
+                                    {assignment.shift_type} {t.viewSchedule.shift}
+                                   </Badge>
+                                 </div>
+                               );
+                               })}
+                             </div>
                            ) : (
                              <p className="text-muted-foreground text-sm">
                                {t.viewSchedule.noAssignmentsForDate}
@@ -835,6 +857,7 @@ export const ViewSchedule = () => {
                     <div className="max-h-64 overflow-y-auto space-y-1">
                       {assignments.map((assignment) => {
                         const leaveStatus = getLeaveRequestStatus(assignment.doctor_id, assignment.date);
+                        const leaveRequest = getLeaveRequestForDoctor(assignment.doctor_id, assignment.date);
                         return (
                         <div
                           key={assignment.id}
@@ -887,12 +910,9 @@ export const ViewSchedule = () => {
                                    {!assignment.is_original && (
                                      <span className="ml-1 text-xs text-orange-600">{t.viewSchedule.modified}</span>
                                    )}
-                                   {leaveStatus === 'approved' && (
-                                     <span className="ml-1 text-xs text-red-600 font-medium">{t.viewSchedule.leaveApproved}</span>
-                                   )}
-                                   {leaveStatus === 'pending' && (
-                                     <span className="ml-1 text-xs text-yellow-600 font-medium">{t.viewSchedule.leavePending}</span>
-                                   )}
+                                   {leaveRequest?.guard_substitute_name && (
+                                    <span> ({leaveRequest.guard_substitute_name})</span>
+                                  )}
                                 </span>
                                 <Button 
                                   size="sm" 
