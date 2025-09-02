@@ -7,7 +7,6 @@ export default defineConfig(({ mode }) => {
   const base = process.env.VITE_BASE ?? '/'
 
   return {
-    base,
     server: {
       host: '::',
       port: 8080,
