@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,6 +16,7 @@ import { CalendarIcon, Plus, FileText, Check, X, Clock, Edit, Trash2, Calendar a
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface Doctor {
   id: string;
@@ -34,6 +36,7 @@ interface LeaveRequest {
   notes?: string;
   has_substitute?: boolean;
   substitute_name?: string;
+  guard_substitute_name?: string;
   doctor: {
     full_name: string;
     alias: string;
@@ -41,6 +44,7 @@ interface LeaveRequest {
 }
 
 export const LeaveRequests = () => {
+  const { t } = useTranslation();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +58,9 @@ export const LeaveRequests = () => {
     reason: '',
     customReason: '',
     has_substitute: false,
-    substitute_name: ''
+    substitute_name: '',
+    has_guard_substitute: false,
+    guard_substitute_name: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
@@ -120,7 +126,9 @@ export const LeaveRequests = () => {
       reason: isCustomReason ? 'Otros' : (request.reason || ''),
       customReason: isCustomReason ? (request.reason || '') : '',
       has_substitute: request.has_substitute || false,
-      substitute_name: request.substitute_name || ''
+      substitute_name: request.substitute_name || '',
+      has_guard_substitute: !!request.guard_substitute_name,
+      guard_substitute_name: request.guard_substitute_name || ''
     });
     setShowForm(true);
   };
@@ -134,7 +142,9 @@ export const LeaveRequests = () => {
       reason: '',
       customReason: '',
       has_substitute: false,
-      substitute_name: ''
+      substitute_name: '',
+      has_guard_substitute: false,
+      guard_substitute_name: ''
     });
     setShowForm(false);
   };
@@ -168,6 +178,7 @@ export const LeaveRequests = () => {
         reason: formData.reason === 'Otros' ? formData.customReason : formData.reason,
         has_substitute: formData.has_substitute,
         substitute_name: formData.has_substitute ? formData.substitute_name : null,
+        guard_substitute_name: formData.has_guard_substitute ? formData.guard_substitute_name : null,
         status: editingRequest ? editingRequest.status : 'pending'
       };
 
@@ -202,7 +213,9 @@ export const LeaveRequests = () => {
         reason: '',
         customReason: '',
         has_substitute: false,
-        substitute_name: ''
+        substitute_name: '',
+        has_guard_substitute: false,
+        guard_substitute_name: ''
       });
       fetchData();
     } catch (error) {
@@ -583,6 +596,34 @@ export const LeaveRequests = () => {
                         value={formData.substitute_name}
                         onChange={(e) => setFormData(prev => ({ ...prev, substitute_name: e.target.value }))}
                         placeholder="Enter substitute name..."
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="has_guard_substitute"
+                      checked={formData.has_guard_substitute}
+                      onCheckedChange={(checked) => setFormData(prev => ({ 
+                        ...prev, 
+                        has_guard_substitute: checked as boolean,
+                        guard_substitute_name: checked ? prev.guard_substitute_name : ''
+                      }))}
+                    />
+                    <label htmlFor="has_guard_substitute" className="text-sm font-medium">
+                      {t.leaveRequests.hasGuardSubstitute}
+                    </label>
+                  </div>
+
+                  {formData.has_guard_substitute && (
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">{t.leaveRequests.guardSubstituteName}</label>
+                      <Input
+                        value={formData.guard_substitute_name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, guard_substitute_name: e.target.value }))}
+                        placeholder={t.leaveRequests.enterGuardSubstituteName}
                       />
                     </div>
                   )}
