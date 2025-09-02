@@ -444,7 +444,7 @@ export const LeaveRequests = () => {
               className="flex items-center gap-1 rounded-r-none"
             >
               <List className="h-4 w-4" />
-              List
+              {t.leaveRequests.list}
             </Button>
             <Button
               variant={viewMode === 'calendar' ? 'default' : 'ghost'}
@@ -453,7 +453,7 @@ export const LeaveRequests = () => {
               className="flex items-center gap-1 rounded-l-none"
             >
               <CalendarViewIcon className="h-4 w-4" />
-              Calendar
+              {t.leaveRequests.calendar}
             </Button>
           </div>
         
@@ -473,7 +473,7 @@ export const LeaveRequests = () => {
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>
-                  {editingRequest ? 'Edit Leave Request' : 'Submit Leave Request'}
+                  {editingRequest ? t.leaveRequests.editLeaveRequest :t.leaveRequests.editLeaveRequest}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
@@ -495,7 +495,7 @@ export const LeaveRequests = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Start Date</label>
+                    <label className="text-sm font-medium mb-2 block">{t.leaveRequests.startDate}</label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -506,7 +506,7 @@ export const LeaveRequests = () => {
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.start_date ? format(formData.start_date, "PPP") : "Pick date"}
+                          {formData.start_date ? format(formData.start_date, "PPP") : t.leaveRequests.pickDate}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -522,7 +522,7 @@ export const LeaveRequests = () => {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium mb-2 block">End Date</label>
+                    <label className="text-sm font-medium mb-2 block">{t.leaveRequests.endDate}</label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -533,7 +533,7 @@ export const LeaveRequests = () => {
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.end_date ? format(formData.end_date, "PPP") : "Pick date"}
+                          {formData.end_date ? format(formData.end_date, "PPP") : t.leaveRequests.pickDate}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -550,10 +550,10 @@ export const LeaveRequests = () => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Reason</label>
+                  <label className="text-sm font-medium mb-2 block">{t.leaveRequests.reason}</label>
                   <Select value={formData.reason} onValueChange={(value) => setFormData(prev => ({ ...prev, reason: value, customReason: value === 'Otros' ? prev.customReason : '' }))}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select reason" />
+                      <SelectValue placeholder={t.leaveRequests.selectReason} />
                     </SelectTrigger>
                     <SelectContent>
                       {leaveReasons.map((reason) => (
@@ -589,17 +589,17 @@ export const LeaveRequests = () => {
                       }))}
                     />
                     <label htmlFor="has_substitute" className="text-sm font-medium">
-                      Do you have a substitute?
+                      {t.leaveRequests.hasSubstitute}
                     </label>
                   </div>
 
                   {formData.has_substitute && (
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Substitute Name</label>
+                      <label className="text-sm font-medium mb-2 block">{t.leaveRequests.substituteName}</label>
                       <Input
                         value={formData.substitute_name}
                         onChange={(e) => setFormData(prev => ({ ...prev, substitute_name: e.target.value }))}
-                        placeholder="Enter substitute name..."
+                        placeholder={t.leaveRequests.enterGuardSubstituteName}
                       />
                     </div>
                   )}
@@ -712,7 +712,7 @@ export const LeaveRequests = () => {
                         className="flex items-center gap-1"
                       >
                         <Edit className="h-3 w-3" />
-                        Edit
+                        {t.leaveRequests.edit}
                       </Button>
                       <Button
                         size="sm"
@@ -721,7 +721,7 @@ export const LeaveRequests = () => {
                         className="flex items-center gap-1 text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-3 w-3" />
-                        Delete
+                        {t.leaveRequests.delete}
                       </Button>
 
                       {/* Approve/Reject buttons only for pending requests */}

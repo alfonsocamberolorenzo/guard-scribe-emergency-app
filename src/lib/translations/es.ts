@@ -136,9 +136,9 @@ export const es: TranslationKeys = {
     endDate: "Fecha de Fin",
     reason: "Motivo",
     status: "Estado",
-    hasSubstitute: "Tiene Sustituto",
+    hasSubstitute: "¿Tiene Sustituto?",
     substituteName: "Nombre del Sustituto",
-    hasGuardSubstitute: "Tiene Sustituto de Guardia",
+    hasGuardSubstitute: "¿Tiene Sustituto de Guardia?",
     guardSubstituteName: "Nombre del Sustituto de Guardia",
     enterGuardSubstituteName: "Ingrese el nombre del sustituto de guardia (si aplica)",
     notes: "Notas",
@@ -150,7 +150,15 @@ export const es: TranslationKeys = {
     edit: "Editar",
     delete: "Eliminar",
     approve: "Aprobar",
-    reject: "Rechazar"
+    reject: "Rechazar",
+    editLeaveRequest: "Editar solicitud de licencia",
+    submitLeaveRequest: "Agregar solicitud de licencia",
+    selectReason: "Seleccione motivo",
+    pickDate: "Seleccione fecha",
+    calendar: "Calendario",
+    list: "Lista",
+    edit: "Editar",
+    delete: "Borrar"
   },
 
   // Statistics

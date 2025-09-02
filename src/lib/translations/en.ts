@@ -134,7 +134,7 @@ export const en = {
     endDate: "End Date", 
     reason: "Reason",
     status: "Status",
-    hasSubstitute: "Has Substitute",
+    hasSubstitute: "Has Substitute?",
     substituteName: "Substitute Name",
     hasGuardSubstitute: "Has Guard Substitute",
     guardSubstituteName: "Guard Substitute Name",
@@ -148,7 +148,15 @@ export const en = {
     edit: "Edit",
     delete: "Delete",
     approve: "Approve",
-    reject: "Reject"
+    reject: "Reject",
+    editLeaveRequest: "Edit Leave Request",
+    submitLeaveRequest: "Submit Leave Request",
+    selectReason: "Select Reason",
+    pickDate: "Pick Date",
+    calendar: "Calendar",
+    list: "List",
+    edit: "Edit",
+    delete: "Delete"
   },
 
   // Statistics
