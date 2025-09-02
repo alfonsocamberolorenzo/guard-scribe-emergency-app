@@ -8,7 +8,8 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "docker": "docker run --rm -it -v \"$PWD\":/app -w /app node:20 bash -lc ' corepack enable && npm ci || npm install && npm run build '"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
