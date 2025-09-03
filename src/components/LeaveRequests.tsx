@@ -315,7 +315,8 @@ export const LeaveRequests = () => {
     return leaveRequests.filter(request => {
       const startDate = parseISO(request.start_date);
       const endDate = parseISO(request.end_date);
-      return date >= startDate && date <= endDate;
+      // Only show leaves that have guard-related information (guard_substitute_name exists)
+      return date >= startDate && date <= endDate && request.guard_substitute_name !== null;
     });
   };
 
@@ -350,7 +351,19 @@ export const LeaveRequests = () => {
   const renderCalendarView = () => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
+    
+    // Get first day of the week (0 = Sunday, 1 = Monday, etc.)
+    // Adjust for Monday start: if Sunday (0), make it 7, otherwise keep as is
+    const firstDayOfMonth = (monthStart.getDay() + 6) % 7; // Convert to Monday = 0
+    
+    // Create array of all days in the month
     const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    
+    // Add empty cells at the beginning for proper alignment
+    const leadingEmptyDays = Array.from({ length: firstDayOfMonth }, (_, i) => null);
+    
+    // Combine leading empty days with actual month days
+    const calendarCells = [...leadingEmptyDays, ...monthDays];
 
     return (
       <div className="space-y-4">
@@ -378,14 +391,24 @@ export const LeaveRequests = () => {
 
         <div className="grid grid-cols-7 gap-1">
           {/* Day headers */}
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
             <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">
               {day}
             </div>
           ))}
 
-          {/* Calendar days */}
-          {monthDays.map(day => {
+          {/* Calendar cells */}
+          {calendarCells.map((day, index) => {
+            if (!day) {
+              // Empty cell for alignment
+              return (
+                <div
+                  key={`empty-${index}`}
+                  className="min-h-[100px] border border-border rounded-lg p-2 bg-muted/20"
+                />
+              );
+            }
+            
             const dayLeaves = getLeavesForDate(day);
             return (
               <div
