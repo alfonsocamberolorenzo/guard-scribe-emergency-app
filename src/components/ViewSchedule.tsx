@@ -470,6 +470,7 @@ export const ViewSchedule = () => {
             <div className="flex items-center gap-1">
               <span>
                  {assignment.doctor.alias}
+                 {hasGuardConflict && <span className="text-red-600"> ⚠️</span>}
                  {leaveRequest?.guard_substitute_name && (
                    <span> ({leaveRequest.guard_substitute_name})</span>
                  )}
@@ -742,6 +743,7 @@ export const ViewSchedule = () => {
                         selected={selectedDate}
                         onSelect={setSelectedDate}
                         month={new Date(selectedSchedule.year, selectedSchedule.month - 1)}
+                        weekStartsOn={1}
                         className="rounded-md border"
                       />
                     </div>
