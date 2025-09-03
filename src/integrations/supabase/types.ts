@@ -147,6 +147,7 @@ export type Database = {
           date: string
           id: string
           is_guard_day: boolean
+          is_working_day: boolean
           updated_at: string
         }
         Insert: {
