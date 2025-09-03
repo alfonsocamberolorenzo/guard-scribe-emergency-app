@@ -3,6 +3,7 @@ CREATE TABLE public.guard_days (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   date DATE NOT NULL UNIQUE,
   is_guard_day BOOLEAN NOT NULL DEFAULT true,
+  is_working_day BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );

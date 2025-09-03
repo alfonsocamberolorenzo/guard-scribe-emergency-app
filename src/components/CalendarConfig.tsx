@@ -11,6 +11,7 @@ interface GuardDay {
   id: string;
   date: string;
   is_guard_day: boolean;
+  is_working_day: boolean;
 }
 
 export function CalendarConfig() {
@@ -23,10 +24,10 @@ export function CalendarConfig() {
 
   const years = Array.from({ length: 11 }, (_, i) => 2020 + i);
   const months = [
-    { value: 1, label: "January" }, { value: 2, label: "February" }, { value: 3, label: "March" },
-    { value: 4, label: "April" }, { value: 5, label: "May" }, { value: 6, label: "June" },
-    { value: 7, label: "July" }, { value: 8, label: "August" }, { value: 9, label: "September" },
-    { value: 10, label: "October" }, { value: 11, label: "November" }, { value: 12, label: "December" }
+    { value: 1, label: "Enero" }, { value: 2, label: "Febrero" }, { value: 3, label: "Marzo" },
+    { value: 4, label: "Abril" }, { value: 5, label: "Mayo" }, { value: 6, label: "Junio" },
+    { value: 7, label: "Julio" }, { value: 8, label: "Agosto" }, { value: 9, label: "Septiembre" },
+    { value: 10, label: "Octubre" }, { value: 11, label: "Noviembre" }, { value: 12, label: "Diciembre" }
   ];
 
   const fetchGuardDays = async () => {
@@ -55,7 +56,8 @@ export function CalendarConfig() {
         allDays.push({
           id: existingDay?.id || '',
           date: dateStr,
-          is_guard_day: existingDay ? existingDay.is_guard_day : true
+          is_guard_day: existingDay ? existingDay.is_guard_day : true,
+          is_working_day: existingDay ? existingDay.is_working_day : true
         });
       }
       
@@ -77,7 +79,7 @@ export function CalendarConfig() {
     setGuardDays(prev => 
       prev.map(day => 
         day.date === date 
-          ? { ...day, is_guard_day: !day.is_guard_day }
+          ? { ...day, is_guard_day: day.is_guard_day === day.is_working_day ? false : true, is_working_day: !(day.is_working_day &&day.is_guard_day) }
           : day
       )
     );
@@ -89,7 +91,8 @@ export function CalendarConfig() {
     try {
       const upsertData = guardDays.map(day => ({
         date: day.date,
-        is_guard_day: day.is_guard_day
+        is_guard_day: day.is_guard_day,
+        is_working_day: day.is_working_day
       }));
 
       const { error } = await supabase
@@ -119,7 +122,7 @@ export function CalendarConfig() {
   };
 
   const resetMonth = () => {
-    setGuardDays(prev => prev.map(day => ({ ...day, is_guard_day: true })));
+    setGuardDays(prev => prev.map(day => ({ ...day, is_guard_day: true, is_working_day: true })));
     setHasChanges(true);
   };
 
@@ -133,6 +136,7 @@ export function CalendarConfig() {
   };
 
   const guardDaysCount = guardDays.filter(day => day.is_guard_day).length;
+  const workingDaysCount = guardDays.filter(day => day.is_working_day).length;
 
   return (
     <div className="space-y-6">
@@ -176,6 +180,7 @@ export function CalendarConfig() {
               
               <div className="ml-auto flex gap-2">
                 <Badge variant="secondary">{guardDaysCount} guard days</Badge>
+                <Badge variant="secondary">{workingDaysCount} working days</Badge>
                 {hasChanges && (
                   <Badge variant="destructive">Unsaved changes</Badge>
                 )}
@@ -190,8 +195,12 @@ export function CalendarConfig() {
                   {guardDays.map((day) => (
                     <Button
                       key={day.date}
-                      variant={day.is_guard_day ? "default" : "outline"}
-                      className="h-16 flex flex-col items-center justify-center"
+                      variant={day.is_working_day ? "outline" : "default"}
+                      className={`h-16 flex flex-col items-center justify-center relative ${
+                        day.is_guard_day
+                          ? "after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[5px] after:bg-green-500"
+                          : ""
+                      }`}
                       onClick={() => toggleGuardDay(day.date)}
                     >
                       <span className="text-xs font-medium">
@@ -216,8 +225,8 @@ export function CalendarConfig() {
                 </div>
 
                 <div className="text-sm text-muted-foreground">
-                  <p>Click on a day to toggle whether it requires guards. Green days will have guard assignments, gray days will not.</p>
-                  <p>Each guard day will have: 1 doctor for 7-hour shift (15:00-22:00) + 2 doctors for 17-hour shifts (15:00-08:00).</p>
+                  <p>Línea verde: guardia del equipo de AP.</p>
+                  <p>Día en blanco: día laborable.</p>
                 </div>
               </>
             )}
