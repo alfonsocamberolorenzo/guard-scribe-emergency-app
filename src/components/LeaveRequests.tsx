@@ -315,7 +315,8 @@ export const LeaveRequests = () => {
     return leaveRequests.filter(request => {
       const startDate = parseISO(request.start_date);
       const endDate = parseISO(request.end_date);
-      return date >= startDate && date <= endDate;
+      // Only show leaves that have guard-related information (guard_substitute_name exists)
+      return date >= startDate && date <= endDate && request.guard_substitute_name !== null;
     });
   };
 
