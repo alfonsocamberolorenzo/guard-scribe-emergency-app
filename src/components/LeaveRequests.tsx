@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarIcon, Plus, FileText, Check, X, Clock, Edit, Trash2, Calendar as CalendarViewIcon, List } from "lucide-react";
+import { CalendarIcon, Plus, FileText, Check, X, Clock, Edit, Trash2, Calendar as CalendarViewIcon, List, AlertTriangle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -43,10 +43,17 @@ interface LeaveRequest {
   };
 }
 
+interface GuardDay {
+  id: string;
+  date: string;
+  is_guard_day: boolean;
+}
+
 export const LeaveRequests = () => {
   const { t } = useTranslation();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [guardDays, setGuardDays] = useState<GuardDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
@@ -70,6 +77,12 @@ export const LeaveRequests = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (viewMode === 'calendar') {
+      fetchGuardDays();
+    }
+  }, [viewMode, currentMonth]);
 
   const fetchData = async () => {
     try {
@@ -103,6 +116,30 @@ export const LeaveRequests = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchGuardDays = async () => {
+    try {
+      const monthStart = startOfMonth(currentMonth);
+      const monthEnd = endOfMonth(currentMonth);
+      
+      const { data: guardDaysData, error } = await supabase
+        .from('guard_days')
+        .select('*')
+        .gte('date', format(monthStart, 'yyyy-MM-dd'))
+        .lte('date', format(monthEnd, 'yyyy-MM-dd'));
+
+      if (error) throw error;
+
+      setGuardDays(guardDaysData || []);
+    } catch (error) {
+      console.error('Error fetching guard days:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load guard days configuration",
+        variant: "destructive",
+      });
     }
   };
 
@@ -315,9 +352,19 @@ export const LeaveRequests = () => {
     return leaveRequests.filter(request => {
       const startDate = parseISO(request.start_date);
       const endDate = parseISO(request.end_date);
-      // Only show leaves that have guard-related information (guard_substitute_name exists)
-      return date >= startDate && date <= endDate && request.guard_substitute_name !== null;
+      return date >= startDate && date <= endDate;
     });
+  };
+
+  const getGuardDayStatus = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const guardDay = guardDays.find(gd => gd.date === dateStr);
+    
+    if (!guardDay) {
+      return 'not_configured';
+    }
+    
+    return guardDay.is_guard_day ? 'guard_day' : 'non_guard_day';
   };
 
   const getLeaveDisplayText = (request: LeaveRequest) => {
@@ -410,6 +457,8 @@ export const LeaveRequests = () => {
             }
             
             const dayLeaves = getLeavesForDate(day);
+            const guardStatus = getGuardDayStatus(day);
+            
             return (
               <div
                 key={day.toISOString()}
@@ -419,17 +468,24 @@ export const LeaveRequests = () => {
                   {format(day, 'd')}
                 </div>
                 <div className="space-y-1">
-                  {dayLeaves.map(request => (
-                    <div
-                      key={request.id}
-                      className={cn(
-                        "text-xs p-1 rounded",
-                        getLeaveTextColor(request)
-                      )}
-                    >
-                      {getLeaveDisplayText(request)}
+                  {guardStatus === 'not_configured' ? (
+                    <div className="flex items-center gap-1 text-xs text-red-600 bg-red-50 p-1 rounded">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span>Not configured</span>
                     </div>
-                  ))}
+                  ) : guardStatus === 'guard_day' ? (
+                    dayLeaves.map(request => (
+                      <div
+                        key={request.id}
+                        className={cn(
+                          "text-xs p-1 rounded",
+                          getLeaveTextColor(request)
+                        )}
+                      >
+                        {getLeaveDisplayText(request)}
+                      </div>
+                    ))
+                  ) : null}
                 </div>
               </div>
             );
