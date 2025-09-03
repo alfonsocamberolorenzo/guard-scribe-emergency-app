@@ -200,6 +200,7 @@ export type Database = {
           created_at: string
           doctor_id: string
           end_date: string
+          guard_substitute_name: string | null
           has_substitute: boolean | null
           id: string
           notes: string | null
@@ -216,6 +217,7 @@ export type Database = {
           created_at?: string
           doctor_id: string
           end_date: string
+          guard_substitute_name?: string | null
           has_substitute?: boolean | null
           id?: string
           notes?: string | null
@@ -232,6 +234,7 @@ export type Database = {
           created_at?: string
           doctor_id?: string
           end_date?: string
+          guard_substitute_name?: string | null
           has_substitute?: boolean | null
           id?: string
           notes?: string | null
