@@ -1,6 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Calendar, CalendarCheck, FileText, Settings, BarChart3, LogOut, User } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Users, Calendar, CalendarCheck, FileText, Settings, BarChart3, LogOut, User, ChevronDown, Shield, Clock, Cog } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -14,22 +22,52 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
   const { profile, isEditor, signOut } = useAuth();
   const { t } = useTranslation();
   
-  const editorMenuItems = [
-    { id: 'doctors', label: t.navigation.doctorManagement, icon: Users },
-    { id: 'calendar-config', label: t.navigation.calendarConfig, icon: Calendar },
-    { id: 'schedule-generator', label: t.navigation.scheduleGeneration, icon: CalendarCheck },
-    { id: 'view-schedule', label: t.navigation.viewSchedule, icon: FileText },
-    { id: 'leave-requests', label: t.navigation.leaveRequests, icon: Settings },
-    { id: 'statistics', label: t.navigation.statistics, icon: BarChart3 },
-    { id: 'user-management', label: t.navigation.userManagement, icon: User },
+  // Menu groups configuration
+  const menuGroups = [
+    {
+      id: 'guards',
+      label: t.navigation.guards,
+      icon: Shield,
+      items: [
+        { id: 'view-schedule', label: t.navigation.viewSchedule, icon: FileText },
+        { id: 'schedule-generator', label: t.navigation.scheduleGeneration, icon: CalendarCheck },
+        { id: 'statistics', label: t.navigation.statistics, icon: BarChart3 },
+      ]
+    },
+    {
+      id: 'configuration',
+      label: t.navigation.configuration,
+      icon: Cog,
+      items: [
+        { id: 'calendar-config', label: t.navigation.calendarConfig, icon: Calendar },
+        { id: 'doctors', label: t.navigation.doctorManagement, icon: Users },
+        { id: 'user-management', label: t.navigation.userManagement, icon: User },
+      ]
+    }
   ];
 
-  const viewerMenuItems = [
-    { id: 'view-schedule', label: t.navigation.viewSchedule, icon: FileText },
-    { id: 'statistics', label: t.navigation.statistics, icon: BarChart3 },
-  ];
+  // Single level item for absences
+  const absencesItem = {
+    id: 'leave-requests',
+    label: t.navigation.absences,
+    icon: Clock
+  };
 
-  const menuItems = isEditor ? editorMenuItems : viewerMenuItems;
+  // Filter menu groups based on user role
+  const getVisibleMenuGroups = () => {
+    if (!isEditor) {
+      // Viewers only see the guards group with limited items
+      return [{
+        ...menuGroups[0],
+        items: menuGroups[0].items.filter(item => 
+          ['view-schedule', 'statistics'].includes(item.id)
+        )
+      }];
+    }
+    return menuGroups;
+  };
+
+  const visibleMenuGroups = getVisibleMenuGroups();
 
   return (
     <nav className="bg-card border-b border-border p-4">
@@ -58,20 +96,55 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
         </div>
         
         <div className="flex gap-2 flex-wrap">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
+          {/* Grouped Menu Items */}
+          {visibleMenuGroups.map((group) => {
+            const GroupIcon = group.icon;
+            const hasActiveItem = group.items.some(item => currentView === item.id);
+            
             return (
-              <Button
-                key={item.id}
-                variant={currentView === item.id ? "default" : "outline"}
-                onClick={() => onViewChange(item.id)}
-                className="flex items-center gap-2"
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </Button>
+              <DropdownMenu key={group.id}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant={hasActiveItem ? "default" : "outline"}
+                    className="flex items-center gap-2"
+                  >
+                    <GroupIcon className="h-4 w-4" />
+                    {group.label}
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {group.items.map((item) => {
+                    const ItemIcon = item.icon;
+                    return (
+                      <DropdownMenuItem
+                        key={item.id}
+                        onClick={() => onViewChange(item.id)}
+                        className={currentView === item.id ? "bg-accent" : ""}
+                      >
+                        <ItemIcon className="h-4 w-4 mr-2" />
+                        {item.label}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
             );
           })}
+
+          {/* Absences - Single Level Item (only for editors) */}
+          {isEditor && (
+            <Button
+              variant={currentView === absencesItem.id ? "default" : "outline"}
+              onClick={() => onViewChange(absencesItem.id)}
+              className="flex items-center gap-2"
+            >
+              <Clock className="h-4 w-4" />
+              {absencesItem.label}
+            </Button>
+          )}
         </div>
       </div>
     </nav>

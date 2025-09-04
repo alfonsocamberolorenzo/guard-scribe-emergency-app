@@ -3,6 +3,12 @@ import { TranslationKeys } from './en';
 export const es: TranslationKeys = {
   // Navigation
   navigation: {
+    // Main menu groups
+    guards: "Guardias",
+    absences: "Ausencias",
+    configuration: "Configuración",
+    
+    // Individual menu items
     doctorManagement: "Gestión de Médicos",
     calendarConfig: "Configuración de Calendario",
     scheduleGeneration: "Generación de Horarios",
