@@ -120,8 +120,9 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
               <Clock className="h-4 w-4" />
               {absencesItem.label}
             </Button>
-            {/* Grouped Menu Items */}
-            {visibleMenuGroups.map((group) => {
+          )}
+          {/* Grouped Menu Items */}
+          {isEditor && visibleMenuGroups.map((group) => {
               const GroupIcon = group.icon;
               const hasActiveItem = group.items.some(item => currentView === item.id);
               
@@ -157,7 +158,6 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
                 </DropdownMenu>
               );
             })}
-          )}
         </div>
       </div>
     </nav>
