@@ -369,13 +369,13 @@ export const LeaveRequests = () => {
   };
 
   const getLeaveDisplayText = (request: LeaveRequest) => {
-    const doctorAlias = request.doctor.alias;
+    const fullName = request.doctor.full_name;
     const substituteName = request.substitute_name;
     
     if (substituteName) {
-      return `${doctorAlias} (${substituteName})`;
+      return `${fullName} (${substituteName})`;
     }
-    return doctorAlias;
+    return fullName;
   };
 
   const getLeaveTextColor = (request: LeaveRequest) => {
@@ -479,7 +479,7 @@ export const LeaveRequests = () => {
                       <div
                         key={request.id}
                         className={cn(
-                          "text-xs p-1 rounded",
+                          "text-xs p-1 rounded bg-gray-100",
                           getLeaveTextColor(request)
                         )}
                       >
