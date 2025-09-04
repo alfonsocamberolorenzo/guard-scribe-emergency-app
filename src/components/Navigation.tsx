@@ -111,45 +111,6 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
             <FileText className="h-4 w-4" />
             {viewScheduleItem.label}
           </Button>
-
-          {/* Grouped Menu Items */}
-          {visibleMenuGroups.map((group) => {
-            const GroupIcon = group.icon;
-            const hasActiveItem = group.items.some(item => currentView === item.id);
-            
-            return (
-              <DropdownMenu key={group.id}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant={hasActiveItem ? "default" : "outline"}
-                    className="flex items-center gap-2"
-                  >
-                    <GroupIcon className="h-4 w-4" />
-                    {group.label}
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {group.items.map((item) => {
-                    const ItemIcon = item.icon;
-                    return (
-                      <DropdownMenuItem
-                        key={item.id}
-                        onClick={() => onViewChange(item.id)}
-                        className={currentView === item.id ? "bg-accent" : ""}
-                      >
-                        <ItemIcon className="h-4 w-4 mr-2" />
-                        {item.label}
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            );
-          })}
-
           {/* Absences - Single Level Item (only for editors) */}
           {isEditor && (
             <Button
@@ -160,6 +121,43 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
               <Clock className="h-4 w-4" />
               {absencesItem.label}
             </Button>
+            {/* Grouped Menu Items */}
+            {visibleMenuGroups.map((group) => {
+              const GroupIcon = group.icon;
+              const hasActiveItem = group.items.some(item => currentView === item.id);
+              
+              return (
+                <DropdownMenu key={group.id}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant={hasActiveItem ? "default" : "outline"}
+                      className="flex items-center gap-2"
+                    >
+                      <GroupIcon className="h-4 w-4" />
+                      {group.label}
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {group.items.map((item) => {
+                      const ItemIcon = item.icon;
+                      return (
+                        <DropdownMenuItem
+                          key={item.id}
+                          onClick={() => onViewChange(item.id)}
+                          className={currentView === item.id ? "bg-accent" : ""}
+                        >
+                          <ItemIcon className="h-4 w-4 mr-2" />
+                          {item.label}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            })}
           )}
         </div>
       </div>
