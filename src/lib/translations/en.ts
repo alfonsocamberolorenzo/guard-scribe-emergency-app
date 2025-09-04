@@ -1,6 +1,12 @@
 export const en = {
   // Navigation
   navigation: {
+    // Main menu groups
+    guards: "Guards",
+    absences: "Absences",
+    configuration: "Configuration",
+    
+    // Individual menu items
     doctorManagement: "Doctor Management",
     calendarConfig: "Calendar Configuration",
     scheduleGeneration: "Schedule Generation",

@@ -27,9 +27,7 @@ const Index = () => {
   
   // Default view based on user role
   const getDefaultView = () => {
-    if (isEditor) return 'doctors';
-    if (isViewer) return 'view-schedule';
-    return 'view-schedule';
+    return 'view-schedule'; // Always default to view-schedule as the main page
   };
 
   const [currentView, setCurrentView] = useState(getDefaultView());
