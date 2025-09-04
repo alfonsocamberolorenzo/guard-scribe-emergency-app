@@ -29,7 +29,6 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
       label: t.navigation.guards,
       icon: Shield,
       items: [
-        { id: 'view-schedule', label: t.navigation.viewSchedule, icon: FileText },
         { id: 'schedule-generator', label: t.navigation.scheduleGeneration, icon: CalendarCheck },
         { id: 'statistics', label: t.navigation.statistics, icon: BarChart3 },
       ]
@@ -46,6 +45,13 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
     }
   ];
 
+  // First level items
+  const viewScheduleItem = {
+    id: 'view-schedule',
+    label: t.navigation.viewSchedule,
+    icon: FileText
+  };
+
   // Single level item for absences
   const absencesItem = {
     id: 'leave-requests',
@@ -60,7 +66,7 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
       return [{
         ...menuGroups[0],
         items: menuGroups[0].items.filter(item => 
-          ['view-schedule', 'statistics'].includes(item.id)
+          item.id === 'statistics'
         )
       }];
     }
@@ -96,6 +102,16 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
         </div>
         
         <div className="flex gap-2 flex-wrap">
+          {/* View Schedule - First Level Item */}
+          <Button
+            variant={currentView === viewScheduleItem.id ? "default" : "outline"}
+            onClick={() => onViewChange(viewScheduleItem.id)}
+            className="flex items-center gap-2"
+          >
+            <FileText className="h-4 w-4" />
+            {viewScheduleItem.label}
+          </Button>
+
           {/* Grouped Menu Items */}
           {visibleMenuGroups.map((group) => {
             const GroupIcon = group.icon;
