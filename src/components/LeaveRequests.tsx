@@ -47,6 +47,7 @@ interface GuardDay {
   id: string;
   date: string;
   is_guard_day: boolean;
+  is_working_day: boolean;
 }
 
 export const LeaveRequests = () => {
@@ -364,7 +365,7 @@ export const LeaveRequests = () => {
       return 'not_configured';
     }
     
-    return guardDay.is_guard_day ? 'guard_day' : 'non_guard_day';
+    return guardDay.is_working_day ? 'working_day' : 'non_working_day';
   };
 
   const getLeaveDisplayText = (request: LeaveRequest) => {
@@ -473,7 +474,7 @@ export const LeaveRequests = () => {
                       <AlertTriangle className="h-3 w-3" />
                       <span>Not configured</span>
                     </div>
-                  ) : guardStatus === 'guard_day' ? (
+                  ) : guardStatus === 'working_day' ? (
                     dayLeaves.map(request => (
                       <div
                         key={request.id}
