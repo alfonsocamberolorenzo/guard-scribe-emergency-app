@@ -242,6 +242,35 @@ export const ViewSchedule = () => {
     }
   };
 
+  const deleteAssignment = async (assignmentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('guard_assignments')
+        .delete()
+        .eq('id', assignmentId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Assignment deleted',
+        description: 'The assignment has been removed.',
+      });
+
+      if (selectedSchedule) {
+        fetchAssignments(selectedSchedule.id);
+      }
+      setEditingAssignment(null);
+      setSelectedDoctorId('');
+    } catch (error) {
+      console.error('Error deleting assignment:', error);
+      toast({
+        title: t.viewSchedule.error,
+        description: 'Failed to delete assignment',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const approveSchedule = async (scheduleId: string) => {
     try {
       const { error } = await supabase
@@ -465,6 +494,27 @@ export const ViewSchedule = () => {
               >
                 <X className="h-3 w-3" />
               </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-destructive hover:bg-destructive/10">
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete assignment</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will remove the selected assignment from this schedule.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => deleteAssignment(assignment.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           ) : (
             <div className="flex items-center gap-1">
@@ -785,20 +835,41 @@ export const ViewSchedule = () => {
                                              ))}
                                            </SelectContent>
                                          </Select>
-                                         <Button 
-                                           size="sm" 
-                                           onClick={() => saveAssignmentChange(assignment.id)}
-                                           disabled={!selectedDoctorId}
-                                         >
-                                           <Save className="h-3 w-3" />
-                                         </Button>
-                                         <Button 
-                                           size="sm" 
-                                           variant="outline" 
-                                           onClick={cancelEditing}
-                                         >
-                                           <X className="h-3 w-3" />
-                                         </Button>
+                                          <Button 
+                                            size="sm" 
+                                            onClick={() => saveAssignmentChange(assignment.id)}
+                                            disabled={!selectedDoctorId}
+                                          >
+                                            <Save className="h-3 w-3" />
+                                          </Button>
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline" 
+                                            onClick={cancelEditing}
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </Button>
+                                          <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                              <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10">
+                                                <Trash2 className="h-3 w-3" />
+                                              </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                              <AlertDialogHeader>
+                                                <AlertDialogTitle>Delete assignment</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                  This will remove the selected assignment from this schedule.
+                                                </AlertDialogDescription>
+                                              </AlertDialogHeader>
+                                              <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => deleteAssignment(assignment.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                                  Delete
+                                                </AlertDialogAction>
+                                              </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                          </AlertDialog>
                                        </div>
                                      ) : (
                                        <div className="flex items-center gap-2">
@@ -886,20 +957,41 @@ export const ViewSchedule = () => {
                                    ))}
                                  </SelectContent>
                                </Select>
-                               <Button 
-                                 size="sm" 
-                                 onClick={() => saveAssignmentChange(assignment.id)}
-                                 disabled={!selectedDoctorId}
-                               >
-                                 <Save className="h-3 w-3" />
-                               </Button>
-                               <Button 
-                                 size="sm" 
-                                 variant="outline" 
-                                 onClick={cancelEditing}
-                               >
-                                 <X className="h-3 w-3" />
-                               </Button>
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => saveAssignmentChange(assignment.id)}
+                                  disabled={!selectedDoctorId}
+                                >
+                                  <Save className="h-3 w-3" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={cancelEditing}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10">
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete assignment</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This will remove the selected assignment from this schedule.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => deleteAssignment(assignment.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                              </div>
                            ) : (
                              <div className="flex items-center gap-2">
