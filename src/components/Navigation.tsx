@@ -37,7 +37,6 @@ export function Navigation({ currentView, onViewChange }: NavigationProps) {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">Medical Guard Management</h1>
           <div className="flex items-center gap-3">
-            <LanguageSelector />
             <div className="flex items-center gap-2">
               <User className="h-4 w-4" />
               <span className="text-sm">{profile?.full_name || 'User'}</span>
